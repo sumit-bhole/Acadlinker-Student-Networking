@@ -11,26 +11,19 @@ class Config:
     raw_uri = os.getenv('DATABASE_URL')
 
     if not raw_uri:
-        # Fallback for local development if .env is missing
         raw_uri = "sqlite:///app.db"
     else:
-        # Fix for SQLAlchemy 1.4+ (postgres:// -> postgresql://)
         if raw_uri.startswith("postgres://"):
             raw_uri = raw_uri.replace("postgres://", "postgresql://", 1)
 
-        # Handle special characters in password
         if '@' in raw_uri and '://' in raw_uri:
             try:
-                # Separate Protocol from the rest
                 protocol, rest = raw_uri.split('://', 1)
-                # Separate Auth from Host (split at the LAST '@')
                 auth_part, host_part = rest.rpartition('@')[0], rest.rpartition('@')[2]
                 
                 if ':' in auth_part:
                     user, password = auth_part.rpartition(':')[0], auth_part.rpartition(':')[2]
-                    # URL-encode only the password
                     encoded_password = urllib.parse.quote_plus(password)
-                    # Reassemble: protocol://user:password@host
                     raw_uri = f"{protocol}://{user}:{encoded_password}@{host_part}"
             except Exception as e:
                 print(f"⚠️ URL Fix failed, using raw: {e}")
@@ -38,13 +31,18 @@ class Config:
     SQLALCHEMY_DATABASE_URI = raw_uri
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # 2. Deployment Settings
-    # IMPORTANT: On Render/Vercel, Secure must be True for cookies to work over HTTPS
+    # 2. Deployment Settings (CRITICAL FOR CORS)
+    # Check if we are in production
     is_prod = os.getenv('FLASK_ENV') == 'production'
     
+    # Must be "None" and "Secure" for cross-domain cookies (Vercel -> Render)
     SESSION_COOKIE_SAMESITE = "None" if is_prod else "Lax"
     SESSION_COOKIE_SECURE = True if is_prod else False
     
+    # Ensure these match for cross-site auth
+    REMEMBER_COOKIE_SAMESITE = "None" if is_prod else "Lax"
+    REMEMBER_COOKIE_SECURE = True if is_prod else False
+
     # CORS
     FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
     
@@ -59,6 +57,10 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+    # Ensure production strictly uses secure cookies
+    SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = "None"
 
 class TestingConfig(Config):
     TESTING = True

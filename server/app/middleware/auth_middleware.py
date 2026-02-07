@@ -2,7 +2,7 @@ from functools import wraps
 from flask import request, jsonify, g
 from supabase import create_client, Client
 import os
-import time  # <--- NEW: For cache expiration
+import time
 from app.extensions import db
 from app.models.user import User
 
@@ -16,8 +16,6 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 🚀 MEMORY CACHE TO PREVENT SOCKET ERRORS ---
-# Stores validated tokens for 60 seconds.
-# Format: { "token_string": { "user_id": "...", "email": "...", "expires": 1234567890 } }
 TOKEN_CACHE = {}
 
 def token_required(f):
@@ -36,25 +34,22 @@ def token_required(f):
             return jsonify({'message': 'Token is missing!'}), 401
 
         # ---------------------------------------------------------
-        # 2. ⚡ CHECK CACHE FIRST (The Speed Fix)
+        # 2. ⚡ CHECK CACHE FIRST
         # ---------------------------------------------------------
         current_time = time.time()
         
-        # Clean up old cache keys (Optional simple garbage collection)
-        # In a production app, you might use Redis, but this works for now.
         if len(TOKEN_CACHE) > 1000:
             TOKEN_CACHE.clear()
 
         cached_session = TOKEN_CACHE.get(token)
         
         if cached_session and cached_session['expires'] > current_time:
-            # Cache Hit! Skip Supabase API call
             g.user_id = cached_session['user_id']
             g.user_email = cached_session['email']
             return f(*args, **kwargs)
 
         # ---------------------------------------------------------
-        # 3. CACHE MISS: Verify with Supabase (Network Call)
+        # 3. CACHE MISS: Verify with Supabase
         # ---------------------------------------------------------
         try:
             user_response = supabase.auth.get_user(token)
@@ -66,8 +61,7 @@ def token_required(f):
             g.user_id = user.id
             g.user_email = user.email
             
-            # 4. SELF-HEALING LOGIC (Only needed on cache miss)
-            # Check if this user actually exists in our local SQL database
+            # 4. SELF-HEALING LOGIC
             local_user = User.query.get(g.user_id)
             
             if not local_user:
@@ -77,17 +71,18 @@ def token_required(f):
                 new_user = User(
                     id=g.user_id,
                     email=g.user_email,
-                    # Fallback to email username if full_name is missing
+                    # Fallback to email prefix if full_name is missing in metadata
                     full_name=meta.get('full_name', g.user_email.split('@')[0]),
                     mobile_no=meta.get('mobile_no', None),
-                    profile_pic=meta.get('avatar_url', None)
+                    # FIX: Changed 'profile_pic' to 'profile_pic_url' to match your DB model
+                    profile_pic_url=meta.get('avatar_url', None)
                 )
                 
                 db.session.add(new_user)
                 db.session.commit()
                 print("✅ User profile created successfully in Database.")
 
-            # 5. 💾 SAVE TO CACHE (Valid for 60 seconds)
+            # 5. 💾 SAVE TO CACHE (60 seconds)
             TOKEN_CACHE[token] = {
                 "user_id": user.id,
                 "email": user.email,

@@ -11,7 +11,6 @@ def create_app():
     app = Flask(__name__)
 
     # --- 🛠️ FIX 1: AUTO-DETECT ENVIRONMENT ---
-    # On Render, FLASK_ENV is usually set to 'production'
     env = os.getenv('FLASK_ENV', 'development')
     if env == 'production':
         app.config.from_object(ProductionConfig)
@@ -19,12 +18,14 @@ def create_app():
         app.config.from_object(DevelopmentConfig)
 
     # --- 🛠️ FIX 2: EXPLICIT CORS ---
-    # Ensure Vercel is allowed explicitly
-    frontend_url = os.getenv("FRONTEND_URL", "*")
+    frontend_url = os.getenv("FRONTEND_URL", "https://acadlinker-student-networking-h91v5ddoh-sumit-bholes-projects.vercel.app")
+    
     CORS(
         app,
         origins=[frontend_url, "http://localhost:5173"],
-        supports_credentials=True
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     )
 
     # Initialize Extensions
@@ -33,7 +34,7 @@ def create_app():
     bcrypt.init_app(app)
     login_manager.init_app(app)
 
-    # Cloudinary
+    # Cloudinary configuration
     if app.config.get("UPLOAD_PROVIDER") == "cloudinary":
         cloudinary.config(
             cloud_name=app.config["CLOUDINARY_CLOUD_NAME"],
@@ -41,11 +42,19 @@ def create_app():
             api_secret=app.config["CLOUDINARY_API_SECRET"]
         )
 
+    # Register Blueprints
     register_blueprints(app)
 
     # Admin Panel
     from app.admin import init_admin
     init_admin(app, db)
+
+    # --- 🛠️ FIX 3: GLOBAL CORS HEADER OVERRIDE ---
+    # This must be INSIDE create_app
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
     return app
 
