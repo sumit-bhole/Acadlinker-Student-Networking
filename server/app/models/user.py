@@ -1,0 +1,36 @@
+from datetime import datetime
+from app.extensions import db
+from app.models.associations import friendships
+
+class User(db.Model):
+    # Supabase Auth IDs are UUID strings, not Integers
+    id = db.Column(db.String(36), primary_key=True)
+    
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    
+    # We added this field for your new registration form
+    username = db.Column(db.String(50), unique=True, nullable=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    
+    # Password column REMOVED (Handled by Supabase)
+
+    mobile_no = db.Column(db.String(15))
+    profile_pic = db.Column(db.String(500), default='default.jpg')
+    cover_photo = db.Column(db.String(500), default='cover.jpg')
+    location = db.Column(db.String(100))
+    description = db.Column(db.Text)
+    skills = db.Column(db.String(255))
+    education = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    friends = db.relationship(
+        'User',
+        secondary=friendships,
+        primaryjoin=(friendships.c.user_id == id),
+        secondaryjoin=(friendships.c.friend_id == id),
+        backref=db.backref('friend_of', lazy='dynamic'),
+        lazy='dynamic'
+    )
+
+    def __repr__(self):
+        return f"User('{self.full_name}', '{self.email}')"

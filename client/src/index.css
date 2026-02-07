@@ -1,0 +1,4 @@
+/* These three lines are essential for Tailwind to compile your utility classes */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
