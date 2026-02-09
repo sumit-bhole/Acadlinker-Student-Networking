@@ -74,8 +74,8 @@ def token_required(f):
                     # Fallback to email prefix if full_name is missing in metadata
                     full_name=meta.get('full_name', g.user_email.split('@')[0]),
                     mobile_no=meta.get('mobile_no', None),
-                    # FIX: Changed 'profile_pic' to 'profile_pic_url' to match your DB model
-                    profile_pic_url=meta.get('avatar_url', None)
+                    # FIX: Changed 'profile_pic' to 'profile_pic' to match your DB model
+                    profile_pic=meta.get('avatar_url', None)
                 )
                 
                 db.session.add(new_user)

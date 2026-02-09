@@ -7,18 +7,17 @@ import {
   LogOut, 
   Users, 
   PlusCircle, 
-  Search, 
   MessageSquare,
   Users as TeamsIcon,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import SearchBar from "./SearchBar";
+import api from "../api/axios";
 
-// --- CRITICAL FIX: Import your configured API instance, NOT default axios ---
-import api from "../api/axios"; 
-const ENABLE_NOTIFICATIONS = false; // 🔕 disable until backend is ready
+const ENABLE_NOTIFICATIONS = false;
 
 const Navbar = () => {
   const { logout, currentUser } = useAuth();
@@ -27,7 +26,6 @@ const Navbar = () => {
   const [userDropdown, setUserDropdown] = useState(false);
   const location = useLocation();
 
-  // Check if current route is active
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;
     if (path !== '/' && location.pathname.startsWith(path)) return true;
@@ -36,11 +34,7 @@ const Navbar = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      // --- CRITICAL FIX: Use 'api' instead of 'axios' ---
-      // 1. We remove "http://localhost:5000" because api.js handles the baseURL
-      // 2. We remove "withCredentials" because we use Bearer Tokens now
       const response = await api.get("/api/notifications/unread_count");
-      
       setUnreadCount(response.data.unread_count);
     } catch (error) {
       console.error("Error fetching notification count:", error);
@@ -48,15 +42,13 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-  if (!ENABLE_NOTIFICATIONS) return;
-  if (!currentUser) return;
+    if (!ENABLE_NOTIFICATIONS) return;
+    if (!currentUser) return;
 
-  fetchUnreadCount();
-
-  const interval = setInterval(fetchUnreadCount, 30000);
-  return () => clearInterval(interval);
-}, [currentUser]);
-
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   if (!currentUser) return null;
 
@@ -73,13 +65,9 @@ const Navbar = () => {
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-gray-900"></div>
             </div>
             <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent text-2xl font-extrabold">
               Acadlinker
-            </span>
-            <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">
-              Beta
             </span>
           </Link>
         </div>
@@ -104,20 +92,7 @@ const Navbar = () => {
             <span className="text-xs mt-1">Home</span>
           </Link>
 
-          {/* Profile */}
-          <Link
-            to={`/profile/${currentUser.id}`}
-            className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
-              isActive('/profile') 
-                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
-                : 'hover:bg-gray-700/50 hover:text-gray-200'
-            }`}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs mt-1">Profile</span>
-          </Link>
-
-          {/* Friends */}
+          {/* Friends - Updated Icon */}
           <Link
             to="/friends"
             className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
@@ -126,11 +101,13 @@ const Navbar = () => {
                 : 'hover:bg-gray-700/50 hover:text-gray-200'
             }`}
           >
-            <Users className="w-5 h-5" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 5.197v-1a6 6 0 00-9-5.197M9 9a4 4 0 118 0" />
+            </svg>
             <span className="text-xs mt-1">Friends</span>
           </Link>
 
-          {/* Teams - Enhanced with Dropdown */}
+          {/* Teams - Updated Icon and Style */}
           <div className="relative">
             <button
               onClick={() => setTeamsDropdown(!teamsDropdown)}
@@ -140,12 +117,13 @@ const Navbar = () => {
                   : 'hover:bg-gray-700/50 hover:text-gray-200'
               }`}
             >
-              <TeamsIcon className="w-5 h-5" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
               <span className="font-medium">Teams</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${teamsDropdown ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Teams Dropdown */}
             {teamsDropdown && (
               <div 
                 className="absolute right-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn"
@@ -153,7 +131,7 @@ const Navbar = () => {
               >
                 <div className="p-4 border-b border-gray-700">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-lg text-white">Your Teams</h3>
+                    <h3 className="font-bold text-lg text-white">Teams</h3>
                     <Link 
                       to="/teams/create"
                       className="flex items-center text-sm text-blue-400 hover:text-blue-300"
@@ -168,7 +146,9 @@ const Navbar = () => {
                       className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                     >
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3">
-                        <TeamsIcon className="w-4 h-4 text-blue-400" />
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
                       </div>
                       <div>
                         <p className="text-sm font-medium">All Teams</p>
@@ -180,7 +160,7 @@ const Navbar = () => {
                       className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                     >
                       <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
-                        <User className="w-4 h-4 text-purple-400" />
+                        <Users className="w-4 h-4 text-purple-400" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">My Teams</p>
@@ -198,7 +178,7 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Chat */}
+          {/* Messaging - Professional name instead of Chat */}
           <Link
             to="/chat"
             className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
@@ -208,42 +188,55 @@ const Navbar = () => {
             }`}
           >
             <MessageSquare className="w-5 h-5" />
-            <span className="text-xs mt-1">Chat</span>
+            <span className="text-xs mt-1">Messages</span>
           </Link>
 
           {/* Notifications */}
           {ENABLE_NOTIFICATIONS && (
-  <div className="relative">
-    <Link
-      to="/notifications"
-      className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 relative ${
-        isActive('/notifications') 
-          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
-          : 'hover:bg-gray-700/50 hover:text-gray-200'
-      }`}
-    >
-      <Bell className="w-5 h-5" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-500 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full text-white">
-          {unreadCount > 9 ? '9+' : unreadCount}
-        </span>
-      )}
-      <span className="text-xs mt-1">Alerts</span>
-    </Link>
-  </div>
-)}
+            <div className="relative">
+              <Link
+                to="/notifications"
+                className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 relative ${
+                  isActive('/notifications') 
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
+                    : 'hover:bg-gray-700/50 hover:text-gray-200'
+                }`}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+                <span className="text-xs mt-1">Alerts</span>
+              </Link>
+            </div>
+          )}
 
-
-          {/* User Dropdown */}
+          {/* User Dropdown - Updated with profile picture and options */}
           <div className="relative ml-2">
             <button
-              onClick={() => setUserDropdown(!userDropdown)}
-              className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-700/50 transition-colors"
-            >
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                {currentUser.name?.[0]?.toUpperCase() || 'U'}
-              </div>
-            </button>
+  onClick={() => setUserDropdown(!userDropdown)}
+  className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
+>
+  {currentUser.profile_pic_url ? (
+    <img
+      src={currentUser.profile_pic_url}
+      alt={currentUser.full_name}
+      className="w-7 h-7 rounded-full object-cover border-2 border-blue-500/30"
+    />
+  ) : (
+    <div className="w-7 h-7 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+      {currentUser.full_name?.[0]?.toUpperCase() || "S"}
+    </div>
+  )}
+
+  {/* FULL NAME BELOW ICON */}
+  <span className="text-xs mt-1 text-gray-300 max-w-[62px] truncate">
+    {currentUser.full_name}
+  </span>
+</button>
+
 
             {userDropdown && (
               <div 
@@ -252,11 +245,19 @@ const Navbar = () => {
               >
                 <div className="p-4 border-b border-gray-700">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                      {currentUser.name?.[0]?.toUpperCase() || 'U'}
-                    </div>
+                    {currentUser.profile_pic_url ? (
+                      <img 
+                        src={currentUser.profile_pic_url} 
+                        alt={currentUser.full_name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-blue-500/30"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                        {currentUser.full_name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                    )}
                     <div>
-                      <p className="font-bold text-white">{currentUser.name || 'User'}</p>
+                      <p className="font-bold text-white">{currentUser.full_name || 'User'}</p>
                       <p className="text-xs text-gray-400">{currentUser.email || 'user@example.com'}</p>
                     </div>
                   </div>
@@ -264,28 +265,30 @@ const Navbar = () => {
                 <div className="p-2">
                   <Link 
                     to={`/profile/${currentUser.id}`}
+                    onClick={() => setUserDropdown(false)}
                     className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                   >
                     <User className="w-4 h-4 mr-3 text-gray-400" />
-                    <span>My Profile</span>
+                    <span>View Profile</span>
                   </Link>
                   <Link 
                     to="/settings"
+                    onClick={() => setUserDropdown(false)}
                     className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                   >
-                    <svg className="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                    <Settings className="w-4 h-4 mr-3 text-gray-400" />
                     <span>Settings</span>
                   </Link>
                   <div className="border-t border-gray-700 my-2"></div>
                   <button
-                    onClick={logout}
+                    onClick={() => {
+                      setUserDropdown(false);
+                      logout();
+                    }}
                     className="flex items-center w-full p-2 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors group"
                   >
                     <LogOut className="w-4 h-4 mr-3" />
-                    <span>Logout</span>
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>
@@ -310,7 +313,6 @@ const Navbar = () => {
   );
 };
 
-// Add this CSS to your global styles for animations
 const styles = `
 @keyframes fadeIn {
   from {
@@ -345,7 +347,6 @@ const styles = `
 }
 `;
 
-// Add styles to document head
 if (typeof document !== 'undefined') {
   const styleSheet = document.createElement("style");
   styleSheet.innerText = styles;
