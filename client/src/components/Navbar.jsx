@@ -18,6 +18,7 @@ import SearchBar from "./SearchBar";
 
 // --- CRITICAL FIX: Import your configured API instance, NOT default axios ---
 import api from "../api/axios"; 
+const ENABLE_NOTIFICATIONS = false; // 🔕 disable until backend is ready
 
 const Navbar = () => {
   const { logout, currentUser } = useAuth();
@@ -47,13 +48,15 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    if (currentUser) {
-      fetchUnreadCount();
-      // Fetch every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [currentUser]);
+  if (!ENABLE_NOTIFICATIONS) return;
+  if (!currentUser) return;
+
+  fetchUnreadCount();
+
+  const interval = setInterval(fetchUnreadCount, 30000);
+  return () => clearInterval(interval);
+}, [currentUser]);
+
 
   if (!currentUser) return null;
 
@@ -209,27 +212,27 @@ const Navbar = () => {
           </Link>
 
           {/* Notifications */}
-          <div className="relative">
-            <Link
-              to="/notifications"
-              className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 relative ${
-                isActive('/notifications') 
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
-                  : 'hover:bg-gray-700/50 hover:text-gray-200'
-              }`}
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <>
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full text-white animate-pulse">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full animate-ping opacity-75"></span>
-                </>
-              )}
-              <span className="text-xs mt-1">Alerts</span>
-            </Link>
-          </div>
+          {ENABLE_NOTIFICATIONS && (
+  <div className="relative">
+    <Link
+      to="/notifications"
+      className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 relative ${
+        isActive('/notifications') 
+          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
+          : 'hover:bg-gray-700/50 hover:text-gray-200'
+      }`}
+    >
+      <Bell className="w-5 h-5" />
+      {unreadCount > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full text-white">
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
+      <span className="text-xs mt-1">Alerts</span>
+    </Link>
+  </div>
+)}
+
 
           {/* User Dropdown */}
           <div className="relative ml-2">

@@ -67,7 +67,7 @@ def register_blueprints(app):
     from app.routes.search_routes import search_bp
     from app.routes.suggestion_routes import suggestions_bp
     from app.routes.main_routes import main_bp
-    from app.routes.notification_routes import notifications_bp 
+    # from app.routes.notification_routes import notifications_bp 
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(friends_bp)
@@ -77,4 +77,4 @@ def register_blueprints(app):
     app.register_blueprint(search_bp)
     app.register_blueprint(suggestions_bp)
     app.register_blueprint(main_bp)
-    app.register_blueprint(notifications_bp)
+    # app.register_blueprint(notifications_bp)
