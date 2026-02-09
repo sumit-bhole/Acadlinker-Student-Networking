@@ -7,7 +7,7 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'your_secure_key')
 
-    # 1. Get and Fix the URI
+    # 1️⃣ DATABASE URL FIXING (KEEP THIS)
     raw_uri = os.getenv('DATABASE_URL')
 
     if not raw_uri:
@@ -20,7 +20,7 @@ class Config:
             try:
                 protocol, rest = raw_uri.split('://', 1)
                 auth_part, host_part = rest.rpartition('@')[0], rest.rpartition('@')[2]
-                
+
                 if ':' in auth_part:
                     user, password = auth_part.rpartition(':')[0], auth_part.rpartition(':')[2]
                     encoded_password = urllib.parse.quote_plus(password)
@@ -31,36 +31,48 @@ class Config:
     SQLALCHEMY_DATABASE_URI = raw_uri
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # 2. Deployment Settings (CRITICAL FOR CORS)
-    # Check if we are in production
-    is_prod = os.getenv('FLASK_ENV') == 'production'
-    
-    # Must be "None" and "Secure" for cross-domain cookies (Vercel -> Render)
+    # 2️⃣ SQLALCHEMY POOLING (CRITICAL FIX)
+    # Optimized for Render Free Tier + Supabase Pooler
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_size": 3,          # small & safe
+        "max_overflow": 2,       # allow tiny bursts
+        "pool_timeout": 30,      # avoid hanging
+        "pool_recycle": 1800,    # recycle stale conns (30 min)
+        "pool_pre_ping": True,   # auto-heal dead connections
+        "connect_args": {
+            "connect_timeout": 10
+        }
+    }
+
+    # 3️⃣ ENVIRONMENT DETECTION
+    is_prod = os.getenv("FLASK_ENV") == "production"
+
     SESSION_COOKIE_SAMESITE = "None" if is_prod else "Lax"
     SESSION_COOKIE_SECURE = True if is_prod else False
-    
-    # Ensure these match for cross-site auth
+
     REMEMBER_COOKIE_SAMESITE = "None" if is_prod else "Lax"
     REMEMBER_COOKIE_SECURE = True if is_prod else False
 
-    # CORS
+    # 4️⃣ CORS
     FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
-    
-    # Cloudinary
+
+    # 5️⃣ CLOUDINARY
     UPLOAD_PROVIDER = os.getenv("UPLOAD_PROVIDER", "local")
     CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
     CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
     CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
+
 class DevelopmentConfig(Config):
     DEBUG = True
 
+
 class ProductionConfig(Config):
     DEBUG = False
-    # Ensure production strictly uses secure cookies
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
     SESSION_COOKIE_SAMESITE = "None"
+
 
 class TestingConfig(Config):
     TESTING = True
