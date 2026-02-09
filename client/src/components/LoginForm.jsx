@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // 1. IMPORT THIS
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Input from './Input';
 
 const LoginForm = ({ onSwitchView }) => {
   const { login, loginWithGoogle } = useAuth();
+  const navigate = useNavigate(); // 2. INITIALIZE HOOK
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
@@ -22,7 +24,7 @@ const LoginForm = ({ onSwitchView }) => {
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
-      // No need to set success message, Supabase redirects automatically
+      // Supabase handles the redirect for Google Auth automatically
     } catch (error) {
       setMsg({ type: 'error', text: 'Google sign-in failed. Please try again.' });
       setGoogleLoading(false);
@@ -38,12 +40,20 @@ const LoginForm = ({ onSwitchView }) => {
       const result = await login(form);
       if (result.success) {
         setMsg({ type: 'success', text: 'Welcome back! Redirecting...' });
+        
+        // 3. THE FIX: Force Redirect after 500ms
+        setTimeout(() => {
+            navigate('/profile', { replace: true });
+            // Optional: Triggers a re-check of auth state across the app
+            window.dispatchEvent(new Event('auth-change'));
+        }, 500);
+        
       } else {
         setMsg({ type: 'error', text: result.message || 'Invalid credentials.' });
+        setLoading(false); // Only stop loading on error
       }
     } catch (error) {
       setMsg({ type: 'error', text: 'Something went wrong. Please try again.' });
-    } finally {
       setLoading(false);
     }
   };
