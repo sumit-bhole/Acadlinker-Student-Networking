@@ -6,6 +6,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    
+    // 👇 IMPORTANT for Vercel build
+    build: {
+      outDir: "dist",
+    },
+    
     server: {
       proxy: {
         "/api": {
