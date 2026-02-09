@@ -30,62 +30,73 @@ const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("posts");
+  const [processingAction, setProcessingAction] = useState(false);
 
   // --- CRITICAL FIX: Do NOT use parseInt(). IDs are UUID strings now. ---
   const isCurrentUser = currentUser && currentUser.id === userId;
 
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/api/profile/${userId}`);
+      setUser(res.data);
+    } catch (err) {
+      console.error("Profile fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // Use 'api' instance
-        const res = await api.get(`/api/profile/${userId}`);
-        setUser(res.data);
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     if (userId) {
-        fetchData();
+      fetchUserData();
     }
   }, [userId]);
 
-  /* ---------------- Friend Actions ---------------- */
-  // Use 'api' for all requests. No need for { withCredentials: true }
+  /* ---------------- Enhanced Friend Actions ---------------- */
   
   const sendFriendRequest = async () => {
     try {
-        await api.post(`/api/friends/send/${user.id}`);
-        setUser((p) => ({ ...p, request_sent: true }));
+      setProcessingAction(true);
+      await api.post(`/api/friends/send/${user.id}`);
+      // Fetch updated user data to get the latest state
+      await fetchUserData();
     } catch (err) {
-        console.error("Failed to send request", err);
+      console.error("Failed to send request", err);
+    } finally {
+      setProcessingAction(false);
     }
   };
 
   const acceptFriendRequest = async () => {
     try {
-        await api.post(`/api/friends/accept/${user.request_id}`);
-        setUser((p) => ({ ...p, is_friend: true, request_received: false }));
+      setProcessingAction(true);
+      await api.post(`/api/friends/accept/${user.request_id}`);
+      // Fetch updated user data
+      await fetchUserData();
     } catch (err) {
-        console.error("Failed to accept request", err);
+      console.error("Failed to accept request", err);
+    } finally {
+      setProcessingAction(false);
     }
   };
 
   const rejectFriendRequest = async () => {
     try {
-        await api.post(`/api/friends/reject/${user.request_id}`);
-        setUser((p) => ({ ...p, request_received: false }));
+      setProcessingAction(true);
+      await api.post(`/api/friends/reject/${user.request_id}`);
+      // Fetch updated user data
+      await fetchUserData();
     } catch (err) {
-        console.error("Failed to reject request", err);
+      console.error("Failed to reject request", err);
+    } finally {
+      setProcessingAction(false);
     }
   };
 
   /* ---------------- Button Renderer ---------------- */
   const renderFriendButton = () => {
-    const base = "px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5";
+    const base = "px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed";
 
     if (isCurrentUser) {
       return (
@@ -102,7 +113,7 @@ const Profile = () => {
     if (user.is_friend) {
       return (
         <Link
-          to={`/chat/${user.id}`} // Changed to /chat/ to match your Navbar link
+          to={`/chat/${user.id}`}
           className={`${base} bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600`}
         >
           <FaComment />
@@ -113,9 +124,12 @@ const Profile = () => {
 
     if (user.request_sent) {
       return (
-        <button className={`${base} bg-gradient-to-r from-gray-100 to-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed`}>
+        <button 
+          className={`${base} bg-gradient-to-r from-gray-100 to-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed`}
+          disabled
+        >
           <FiClock />
-          Request Sent
+          {processingAction ? "Processing..." : "Request Sent"}
         </button>
       );
     }
@@ -125,16 +139,27 @@ const Profile = () => {
         <div className="flex gap-3">
           <button
             onClick={acceptFriendRequest}
+            disabled={processingAction}
             className={`${base} bg-gradient-to-r from-emerald-500 to-green-400 text-white hover:from-emerald-600 hover:to-green-500`}
           >
-            <FaCheck />
-            Accept
+            {processingAction ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Accepting...
+              </>
+            ) : (
+              <>
+                <FaCheck />
+                Accept
+              </>
+            )}
           </button>
           <button
             onClick={rejectFriendRequest}
+            disabled={processingAction}
             className={`${base} bg-white border border-red-100 text-red-600 hover:bg-red-50 hover:border-red-200`}
           >
-            Reject
+            {processingAction ? "Processing..." : "Reject"}
           </button>
         </div>
       );
@@ -143,10 +168,20 @@ const Profile = () => {
     return (
       <button
         onClick={sendFriendRequest}
+        disabled={processingAction}
         className={`${base} bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600`}
       >
-        <FaPlus />
-        Add Friend
+        {processingAction ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            Sending...
+          </>
+        ) : (
+          <>
+            <FaPlus />
+            Add Friend
+          </>
+        )}
       </button>
     );
   };
@@ -221,81 +256,78 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Main Content Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-10">
-        {/* Profile Header Card */}
+      {/* Main Content Container - FIXED: Added more top margin to prevent overlap */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 md:-mt-16 relative z-10">
+        {/* Profile Header Card - FIXED: Adjusted padding to prevent name overlap */}
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden mb-8 transform transition-all duration-500">
-          {/* Profile Image with Glow Effect */}
-          <div className="relative px-8 pt-8">
-            <div className="absolute -top-6">
-              <div className="relative">
-                <div className="w-40 h-40 rounded-2xl border-8 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-                  <img
-                    src={user.profile_pic_url || "/default-profile.png"}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                {user.is_online && (
-                  <div className="absolute bottom-4 right-4 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full"></div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Profile Info */}
-          <div className="px-8 pt-20 pb-8">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                    {user.full_name}
-                  </h1>
-                  {user.is_verified && (
-                    <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-sm font-medium flex items-center gap-1">
-                      <FaCheck className="text-xs" />
-                      Verified
-                    </span>
-                  )}
-                </div>
-                
-                <p className="text-gray-600 text-lg mb-4 flex items-center gap-2">
-                  <FaBriefcase className="text-gray-400" />
-                  {user.role || "Software Engineer"}
-                </p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {user.skills ? (
-                    user.skills.split(",").map((skill, i) => (
-                      <span
-                        key={i}
-                        className="px-4 py-2 rounded-full bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 text-sm font-medium hover:from-gray-100 hover:to-gray-200 transition-all duration-200 cursor-pointer"
-                      >
-                        {skill.trim()}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-gray-400 italic">
-                      No skills listed yet
-                    </span>
+          {/* Profile Image with Glow Effect - FIXED: Changed positioning */}
+          <div className="relative px-6 md:px-8 pt-6 md:pt-8">
+            <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+              {/* Profile Image Container */}
+              <div className="relative -mt-16 sm:-mt-20">
+                <div className="relative">
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl border-8 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+                    <img
+                      src={user.profile_pic_url || "/default-profile.png"}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  {user.is_online && (
+                    <div className="absolute bottom-3 right-3 w-5 h-5 sm:w-6 sm:h-6 bg-emerald-500 border-4 border-white rounded-full"></div>
                   )}
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                {renderFriendButton()}
-                {!isCurrentUser && (
-                  <button className="px-6 py-3 rounded-xl font-medium border-2 border-gray-200 hover:border-gray-300 transition-all duration-300 hover:shadow-md flex items-center gap-2">
-                    <FiUsers />
-                    Follow
-                  </button>
-                )}
+              {/* Profile Info - FIXED: Adjusted margins to prevent overlap */}
+              <div className="flex-1 pt-4 sm:pt-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                        {user.full_name}
+                      </h1>
+                      {user.is_verified && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-sm font-medium flex items-center gap-1">
+                          <FaCheck className="text-xs" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
+                    
+                    <p className="text-gray-600 text-lg mb-4 flex items-center gap-2">
+                      <FaBriefcase className="text-gray-400" />
+                      {user.role || "Software Engineer"}
+                    </p>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {user.skills ? (
+                        user.skills.split(",").map((skill, i) => (
+                          <span
+                            key={i}
+                            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 text-sm font-medium hover:from-gray-100 hover:to-gray-200 transition-all duration-200 cursor-pointer"
+                          >
+                            {skill.trim()}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">
+                          No skills listed yet
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons - REMOVED: Follow button */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {renderFriendButton()}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Stats Bar */}
+            {/* Stats Bar - Adjusted margin-top for better spacing */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-100">
               <StatCard
                 icon={FaUserFriends}

@@ -33,4 +33,7 @@ class User(db.Model):
     )
 
     def __repr__(self):
-        return f"User('{self.full_name}', '{self.email}')"
+        # Accessing __dict__ reads the value directly from memory.
+        # It avoids triggering a database refresh, preventing the loop.
+        uid = self.__dict__.get("id", "unknown")
+        return f"<User {uid}>"

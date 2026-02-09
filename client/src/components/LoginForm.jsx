@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. IMPORT THIS
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Input from './Input';
 
 const LoginForm = ({ onSwitchView }) => {
   const { login, loginWithGoogle } = useAuth();
-  const navigate = useNavigate(); // 2. INITIALIZE HOOK
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
@@ -24,7 +24,6 @@ const LoginForm = ({ onSwitchView }) => {
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
-      // Supabase handles the redirect for Google Auth automatically
     } catch (error) {
       setMsg({ type: 'error', text: 'Google sign-in failed. Please try again.' });
       setGoogleLoading(false);
@@ -37,22 +36,31 @@ const LoginForm = ({ onSwitchView }) => {
     setMsg({ type: '', text: '' });
 
     try {
+      // 1. Call Login
       const result = await login(form);
+
       if (result.success) {
         setMsg({ type: 'success', text: 'Welcome back! Redirecting...' });
         
-        // 3. THE FIX: Force Redirect after 500ms
+        // 2. Extract User ID from the response
+        // (Adjust logic based on your exact AuthContext return structure)
+        const userId = result.user?.id || result.data?.user?.id || result.id;
+
+        // 3. Determine Redirect Path
+        const targetPath = userId ? `/profile/${userId}` : '/profile';
+
+        // 4. Force Redirect
         setTimeout(() => {
-            navigate('/profile', { replace: true });
-            // Optional: Triggers a re-check of auth state across the app
+            navigate(targetPath, { replace: true });
             window.dispatchEvent(new Event('auth-change'));
         }, 500);
         
       } else {
         setMsg({ type: 'error', text: result.message || 'Invalid credentials.' });
-        setLoading(false); // Only stop loading on error
+        setLoading(false);
       }
     } catch (error) {
+      console.error("Login Error:", error);
       setMsg({ type: 'error', text: 'Something went wrong. Please try again.' });
       setLoading(false);
     }
@@ -65,7 +73,6 @@ const LoginForm = ({ onSwitchView }) => {
         <p className="text-gray-500 mt-2 text-sm">Enter your details to access your workspace.</p>
       </div>
 
-      {/* Social Login Section */}
       <button
         type="button"
         onClick={handleGoogleLogin}
