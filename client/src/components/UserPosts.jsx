@@ -1,22 +1,43 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/axios";
+import { Image, Send, Paperclip, MoreHorizontal, Clock } from "lucide-react";
+
+// --- HELPERS (Logic Same as before) ---
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (!url.startsWith("http") && !url.startsWith("https")) {
+    return `http://localhost:5000/static/uploads/${url}`;
+  }
+  return url;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return "Just now";
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch (e) {
+    return "Recently";
+  }
+};
 
 const UserPosts = ({ userId, isCurrentUser }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Create Post State
+  // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  // --------------------------
-  // Fetch posts
-  // --------------------------
+  // Fetch Posts
   useEffect(() => {
     if (!userId) return;
-
     const fetchPosts = async () => {
       try {
         const res = await api.get(`/api/profile/${userId}/posts`);
@@ -27,23 +48,17 @@ const UserPosts = ({ userId, isCurrentUser }) => {
         setLoading(false);
       }
     };
-
     fetchPosts();
   }, [userId]);
 
-  // --------------------------
-  // Create Post
-  // --------------------------
+  // Create Post Handler
   const handleCreatePost = async (e) => {
     e.preventDefault();
-
     if (!title.trim()) {
       alert("Title is required");
       return;
     }
-
     setCreating(true);
-
     try {
       const formData = new FormData();
       formData.append("title", title);
@@ -54,13 +69,12 @@ const UserPosts = ({ userId, isCurrentUser }) => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // Add newly created post on top
       setPosts((prev) => [res.data.post, ...prev]);
-
-      // Clear form
       setTitle("");
       setDescription("");
       setFile(null);
+      const fileInput = document.getElementById("fileInput");
+      if (fileInput) fileInput.value = "";
     } catch (err) {
       console.error("Post create failed:", err);
       alert(err.response?.data?.error || "Failed to create post");
@@ -69,103 +83,204 @@ const UserPosts = ({ userId, isCurrentUser }) => {
     }
   };
 
-  // --------------------------
-  // Loading state
-  // --------------------------
+  // Render File Helper
+  const renderFile = (rawUrl) => {
+    const url = getImageUrl(rawUrl);
+    if (!url) return null;
+    const ext = url.split(".").pop()?.toLowerCase() || "";
+    const isImage = ["png", "jpg", "jpeg", "gif", "webp"].includes(ext) || url.includes("cloudinary");
+
+    if (isImage) {
+      return (
+        <div className="mt-3 rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+          <img
+            src={url}
+            alt="Attachment"
+            className="w-full h-auto max-h-96 object-cover" 
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      );
+    }
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 hover:bg-indigo-100 transition-colors text-sm"
+      >
+        <Paperclip className="w-4 h-4" />
+        <span className="font-medium">Download Attachment</span>
+      </a>
+    );
+  };
+
   if (loading)
-    return <div className="text-center text-gray-500 p-4">Loading posts...</div>;
+    return (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8"> {/* Increased vertical space between sections */}
 
-      {/* CREATE POST (only for owner profile) */}
+      {/* --- CREATE POST SECTION (Styling Improved) --- */}
       {isCurrentUser && (
-        <form
-          onSubmit={handleCreatePost}
-          className="bg-white p-5 rounded-xl shadow-lg border space-y-4"
-        >
-          <h3 className="text-xl font-semibold text-gray-800">
-            Create New Post
-          </h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+              Create a Post
+            </h3>
+          </div>
+          
+          <form onSubmit={handleCreatePost} className="p-4 space-y-4">
+            {/* Title Input */}
+            <div>
+              <input
+                type="text"
+                placeholder="Give your post a catchy title..."
+                className="w-full text-lg font-semibold placeholder-gray-400 border-none focus:ring-0 p-0 focus:outline-none text-gray-800"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+            </div>
 
-          <input
-            type="text"
-            placeholder="Post Title"
-            className="w-full p-2 border rounded-lg"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
+            {/* Description Input */}
+            <div>
+              <textarea
+                placeholder="What's on your mind? Share details, code, or ideas..."
+                className="w-full min-h-[80px] text-gray-600 placeholder-gray-400 border-none focus:ring-0 p-0 focus:outline-none resize-none text-sm leading-relaxed"
+                rows="3"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
 
-          <textarea
-            placeholder="Write something..."
-            className="w-full p-2 border rounded-lg"
-            rows="3"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+            {/* Divider */}
+            <div className="h-px bg-gray-100 w-full my-2"></div>
 
-          <input
-            type="file"
-            accept="image/png, image/jpeg, image/jpg"
-            className="w-full border p-2 rounded-lg"
-            onChange={(e) => setFile(e.target.files[0])}
-          />
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-2">
+              {/* Custom File Input */}
+              <div className="flex items-center">
+                <label 
+                  htmlFor="fileInput" 
+                  className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    file ? "bg-indigo-50 text-indigo-600" : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                >
+                  <Image className="w-4 h-4" />
+                  {file ? (
+                    <span className="max-w-[100px] truncate">{file.name}</span>
+                  ) : (
+                    "Add Media"
+                  )}
+                </label>
+                <input
+                  id="fileInput"
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg, image/webp"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </div>
 
-          <button
-            type="submit"
-            disabled={creating}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
-          >
-            {creating ? "Posting..." : "Post"}
-          </button>
-        </form>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={creating}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full font-medium text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {creating ? (
+                  "Posting..."
+                ) : (
+                  <>
+                    <span>Post</span>
+                    <Send className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
-      {/* POSTS LIST */}
+      {/* --- POSTS LIST SECTION --- */}
       {posts.length === 0 ? (
-        <div className="text-center text-gray-500 p-4">No posts yet.</div>
+        <div className="flex flex-col items-center justify-center py-10 bg-white rounded-2xl border border-dashed border-gray-300 text-center">
+          <div className="bg-gray-50 p-4 rounded-full mb-3">
+             <Image className="w-6 h-6 text-gray-400" />
+          </div>
+          <p className="text-gray-500 font-medium">No posts to show yet.</p>
+          {isCurrentUser && <p className="text-gray-400 text-sm mt-1">Create your first post above!</p>}
+        </div>
       ) : (
-        <div className="space-y-4">
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="bg-white shadow rounded-xl border p-4"
-            >
-              <h3 className="text-lg font-semibold">{post.title}</h3>
+        <div className="space-y-6"> {/* Gap between cards */}
+          {posts.map((post) => {
+            const userObj = post.user || {};
+            const userName = userObj.full_name || "Unknown User";
+            const userPic = userObj.profile_pic_url || "/default-profile.png";
+            const timestamp = post.created_at || post.timestamp;
 
-              {post.description && (
-                <p className="text-gray-700 mt-1">{post.description}</p>
-              )}
+            return (
+              <div
+                key={post.id}
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+              >
+                {/* Post Header */}
+                <div className="px-5 py-4 flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={userPic}
+                      alt={userName}
+                      className="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-sm"
+                    />
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm leading-tight">
+                        {userName}
+                      </h4>
+                      <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(timestamp)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </div>
 
-              {/* File Rendering Logic - Updated to use 'file_url' */}
-              {post.file_url && (
-                ["png", "jpg", "jpeg", "gif"].includes(
-                  (post.file_url.split(".").pop() || "").toLowerCase()
-                ) ? (
-                  <img
-                    src={post.file_url}  
-                    alt="Post"
-                    className="mt-3 rounded-lg w-full object-cover max-h-96"
-                  />
-                ) : (
-                  <a
-                    href={post.file_url} 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-block bg-gray-200 px-3 py-2 rounded-lg text-indigo-700"
-                  >
-                    📎 Download File
-                  </a>
-                )
-              )}
+                {/* Post Body */}
+                <div className="px-5 pb-2">
+                  {post.title && (
+                    <h3 className="text-lg font-bold text-gray-800 mb-2 leading-tight">
+                      {post.title}
+                    </h3>
+                  )}
+                  {post.description && (
+                    <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
+                      {post.description}
+                    </p>
+                  )}
+                </div>
 
-              <p className="text-gray-400 text-sm mt-2">
-                {/* Ensure date_posted is used if timestamp is unavailable, or vice versa */}
-                {new Date(post.date_posted || post.timestamp).toLocaleString()}
-              </p>
-            </div>
-          ))}
+                {/* Attachments (Compact Container) */}
+                {post.file_url && (
+                  <div className="px-5 pb-5">
+                    {renderFile(post.file_url)}
+                  </div>
+                )}
+                
+                {/* Optional: Footer Action Bar (Like/Comment placeholder for visual balance) */}
+                {/* <div className="px-5 py-3 border-t border-gray-50 bg-gray-50/30 flex gap-4 text-gray-500 text-sm">
+                   ... buttons here if needed ...
+                </div> */}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

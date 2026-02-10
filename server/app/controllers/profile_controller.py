@@ -1,5 +1,5 @@
 import cloudinary.uploader
-from flask import jsonify, request, g
+from flask import jsonify, request, g, url_for, current_app
 from werkzeug.datastructures import FileStorage
 
 from app.extensions import db
@@ -89,6 +89,40 @@ def _serialize_user(target_user, current_user_id):
 
     return user_data
 
+# ==========================================
+#  NEW HELPER: Serialize Post (Shared Logic)
+# ==========================================
+def _serialize_post(post):
+    """
+    Ensures post data structure matches what Frontend expects (Home Feed style).
+    """
+    image_url = None
+    if post.file_name:
+        if post.file_name.startswith("http"):
+            image_url = post.file_name
+        else:
+            # Generate full URL for local files
+            image_url = url_for("static", filename=f"uploads/{post.file_name}", _external=True)
+
+    user_data = {
+        "id": post.user.id,
+        "full_name": post.user.full_name,
+        "profile_pic_url": post.user.profile_pic or "/default-profile.png"
+    } if post.user else {
+        "id": "unknown",
+        "full_name": "Unknown User",
+        "profile_pic_url": "/default-profile.png"
+    }
+
+    return {
+        "id": post.id,
+        "title": post.title,
+        "description": post.description,
+        "file_url": image_url,  # Matches Frontend expectations
+        "created_at": post.timestamp.isoformat() if post.timestamp else None, # Matches Frontend
+        "user": user_data # Includes user details for card header
+    }
+
 # -------------------------------------------------
 # Controller Actions
 # -------------------------------------------------
@@ -105,10 +139,14 @@ def get_user_profile(user_id):
     ).first()
 
     user_data = _serialize_user(target_user, g.user_id)
-    user_data["request_id"] = received_request.id if received_request else None
+    if received_request:
+        user_data["request_id"] = received_request.id
 
     return jsonify(user_data), 200
 
+# ==========================================
+#  UPDATED FUNCTION: get_profile_posts
+# ==========================================
 def get_profile_posts(user_id):
     target_user = User.query.get(user_id)
     if not target_user:
@@ -120,16 +158,8 @@ def get_profile_posts(user_id):
         .all()
     )
 
-    return jsonify([
-        {
-            "id": p.id,
-            "title": p.title,
-            "description": p.description,
-            "file_name": p.file_name,
-            "timestamp": p.timestamp.isoformat(),
-        }
-        for p in posts
-    ]), 200
+    # Use the new helper to return FULL details (User info + Correct Image URL)
+    return jsonify([_serialize_post(p) for p in posts]), 200
 
 def update_user_profile():
     # 1. Fetch User
@@ -137,16 +167,9 @@ def update_user_profile():
     if not current_user:
         return jsonify({"message": "User not found"}), 404
 
-    # 2. DEBUG LOGS: Print exactly what the frontend sent
-    print(f"📝 Receiving Update for: {current_user.full_name}")
-    print(f"🔑 Form Keys Received: {list(request.form.keys())}")
-    print(f"📦 Form Data: {request.form}")
-
     data = request.form
 
     # 3. EXPLICIT UPDATE LOGIC
-    # We check "if key in data" to differentiate between 'empty string' and 'missing key'
-    
     if "full_name" in data:
         current_user.full_name = data["full_name"]
     
@@ -180,11 +203,7 @@ def update_user_profile():
     try:
         # 5. Commit and Refresh
         db.session.commit()
-        
-        # CRITICAL: Refresh the object from DB to ensure we return the saved values
         db.session.refresh(current_user) 
-        
-        print("✅ Database Commit Successful")
         
         return jsonify({
             "message": "Profile updated successfully",
@@ -193,5 +212,4 @@ def update_user_profile():
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Database Error: {e}")
         return jsonify({"message": str(e)}), 500
