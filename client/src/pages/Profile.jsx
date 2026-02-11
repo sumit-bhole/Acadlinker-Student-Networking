@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import UserPosts from "../components/UserPosts";
 import { useParams, Link } from "react-router-dom";
-import AskHelpCard from "../components/AskHelpCard"; // 👈 IMPORT THIS
+import AskHelpCard from "../components/AskHelpCard";
 import api from "../api/axios";
 import {
   FaEnvelope,
@@ -16,7 +16,8 @@ import {
   FaComment,
   FaEdit,
   FaGlobe,
-  FaBriefcase
+  FaBriefcase,
+  FaTrophy // 👈 ADDED: Trophy icon for RP
 } from "react-icons/fa";
 import { FiSend, FiClock } from "react-icons/fi";
 
@@ -168,8 +169,8 @@ const Profile = () => {
     );
   };
 
-  const StatCard = ({ icon: Icon, label, value, color }) => (
-    <div className="bg-white rounded-xl p-3 border border-gray-200 hover:shadow-md transition-shadow duration-300 text-left">
+  const StatCard = ({ icon: Icon, label, value, color, fullWidth = false }) => (
+    <div className={`bg-white rounded-xl p-3 border border-gray-200 hover:shadow-md transition-shadow duration-300 text-left ${fullWidth ? 'col-span-2' : ''}`}>
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${color}`}>
           <Icon className="text-white text-base" />
@@ -215,7 +216,6 @@ const Profile = () => {
   }
 
   return (
-    // FIX 1: Parent is min-h-screen (auto height) on mobile, h-screen (fixed) on desktop
     <div className="min-h-screen md:h-screen bg-gray-50 py-8 px-4 sm:px-6 overflow-y-auto md:overflow-hidden">
       
       <style>
@@ -232,12 +232,10 @@ const Profile = () => {
 
       <div className="max-w-7xl mx-auto h-full">
         
-        {/* FIX 2: Flex container handles height only on desktop */}
         <div className="flex flex-col md:flex-row gap-6 h-auto md:h-full items-start">
           
           {/* =======================
               LEFT SIDEBAR (Profile Card)
-              FIX 3: h-auto on mobile (scrolls normally), fixed height on desktop
              ======================= */}
           <div className="w-full md:w-2/5 flex-shrink-0 h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar rounded-2xl">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -283,7 +281,17 @@ const Profile = () => {
                   {renderFriendButton()}
                 </div>
 
+                {/* 🆕 UPDATED: Stats Grid includes RP Points */}
                 <div className="grid grid-cols-2 gap-3 mb-8">
+                  {/* RP Points Card - Spans full width or fits in grid */}
+                  <StatCard 
+                    icon={FaTrophy} 
+                    label="RP Points" 
+                    value={user.rp || user.rp_points || "0"} 
+                    color="bg-gradient-to-r from-yellow-400 to-orange-500" 
+                    fullWidth={true}
+                  />
+                  
                   <StatCard icon={FaUserFriends} label="Friends" value={user.friend_count || "0"} color="bg-gradient-to-r from-blue-500 to-cyan-400" />
                   <StatCard icon={FiSend} label="Posts" value={user.post_count || "0"} color="bg-gradient-to-r from-purple-500 to-pink-400" />
                   <StatCard icon={FaCalendarAlt} label="Joined" value={new Date(user.created_at).toLocaleDateString('default', { month: 'short', year: 'numeric' })} color="bg-gradient-to-r from-emerald-500 to-green-400" />
@@ -343,16 +351,20 @@ const Profile = () => {
 
           {/* =======================
               RIGHT CONTENT (Posts)
-              FIX 4: h-auto on mobile, fixed on desktop
              ======================= */}
           <div className="w-full md:w-3/5 h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar pb-6">
             
-            {/* 🆕 ASK HELP CARD (Only on own profile) */}
-            {isCurrentUser && (
-                <div className="mb-8">
-                    <AskHelpCard user={user} onRefresh={fetchUserData} />
-                </div>
-            )}            
+            {/* 🆕 ASK HELP CARD UPDATE: 
+                Render for everyone, but pass isOwner. 
+                AskHelpCard must handle logic to hide edit buttons if !isOwner. 
+            */}
+             <div className="mb-8">
+                <AskHelpCard 
+                  user={user} 
+                  isOwner={isCurrentUser} 
+                  onRefresh={fetchUserData} 
+                />
+             </div>
             
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
