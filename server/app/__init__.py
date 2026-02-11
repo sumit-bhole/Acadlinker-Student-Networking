@@ -68,7 +68,8 @@ def register_blueprints(app):
     from app.routes.suggestion_routes import suggestions_bp
     from app.routes.main_routes import main_bp
     # from app.routes.notification_routes import notifications_bp 
-
+    from app.routes.help_routes import help_bp
+    app.register_blueprint(help_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(friends_bp)
     app.register_blueprint(messages_bp)

@@ -13,7 +13,8 @@ import {
   Search,
   ChevronDown,
   Settings,
-  Sparkles
+  Sparkles,
+  Zap // 👈 Added Zap icon for Help
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import SearchBar from "./SearchBar";
@@ -292,7 +293,7 @@ const Navbar = () => {
                       {currentUser.profile_pic_url ? (
                         <img 
                           src={currentUser.profile_pic_url} 
-                          alt={currentUser.full_name}
+                          alt={currentUser.full_name} 
                           className="w-10 h-10 rounded-full object-cover border-2 border-blue-500/30"
                         />
                       ) : (
@@ -398,6 +399,16 @@ const Navbar = () => {
                   isActive={isActive('/')}
                   onClick={() => setMobileMenuOpen(false)}
                 />
+                
+                {/* 🆕 ADDED: Community Help Link (Only visible on mobile) */}
+                <MobileNavItem
+                  to="/help/feed"
+                  icon={<Zap className="w-5 h-5" />}
+                  label="Community Help"
+                  isActive={isActive('/help/feed')}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+
                 <MobileNavItem
                   to="/friends"
                   icon={
@@ -412,12 +423,12 @@ const Navbar = () => {
                 <div className="space-y-1">
                   <div className={`flex items-center justify-between p-3 rounded-lg ${isActive('/teams') ? 'bg-blue-500/20' : 'hover:bg-gray-800/50'}`}>
                     <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
-                      <span className="font-medium">Teams</span>
+                      <span className="font-medium text-gray-300">Teams</span>
                     </div>
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
                   </div>
                   <div className="pl-4 space-y-1">
                     <MobileNavItem
@@ -518,7 +529,7 @@ const Navbar = () => {
   );
 };
 
-// Mobile Navigation Item Component
+// Mobile Navigation Item Component (Updated with Explicit Text Color)
 const MobileNavItem = ({ to, icon, label, isActive, onClick, badge, indent, accent }) => (
   <Link
     to={to}
@@ -535,7 +546,8 @@ const MobileNavItem = ({ to, icon, label, isActive, onClick, badge, indent, acce
       <div className={`${accent ? 'text-blue-400' : 'text-gray-400'}`}>
         {icon}
       </div>
-      <span className={`${accent ? 'text-blue-400 font-medium' : ''}`}>{label}</span>
+      {/* 🛠️ FIX: Added 'text-gray-300' default color so it's not black */}
+      <span className={`${accent ? 'text-blue-400 font-medium' : 'text-gray-300'}`}>{label}</span>
     </div>
     {badge && (
       <span className="bg-red-500 text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full text-white">

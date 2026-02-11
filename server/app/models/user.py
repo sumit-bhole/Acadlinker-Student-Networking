@@ -7,13 +7,9 @@ class User(db.Model):
     id = db.Column(db.String(36), primary_key=True)
     
     email = db.Column(db.String(120), unique=True, nullable=False)
-    
-    # We added this field for your new registration form
     username = db.Column(db.String(50), unique=True, nullable=True)
     full_name = db.Column(db.String(100), nullable=False)
     
-    # Password column REMOVED (Handled by Supabase)
-
     mobile_no = db.Column(db.String(15))
     profile_pic = db.Column(db.String(500), default='default.jpg')
     cover_photo = db.Column(db.String(500), default='cover.jpg')
@@ -22,6 +18,18 @@ class User(db.Model):
     skills = db.Column(db.String(255))
     education = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # ---------------------------------------------------------
+    # 🆕 NEW FIELDS FOR DEV-RESCUE (HELP FEATURE)
+    # ---------------------------------------------------------
+    reputation_points = db.Column(db.Integer, default=0)
+    last_help_request_at = db.Column(db.DateTime, nullable=True)
+
+    # 🆕 Relationships
+    # Note: We use string names 'HelpRequest' and 'Solution' to avoid circular import errors
+    help_requests = db.relationship('HelpRequest', backref='author', lazy=True)
+    solutions = db.relationship('Solution', backref='solver', lazy=True)
+    # ---------------------------------------------------------
 
     friends = db.relationship(
         'User',
