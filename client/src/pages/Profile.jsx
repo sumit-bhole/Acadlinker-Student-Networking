@@ -287,7 +287,7 @@ const Profile = () => {
                   <StatCard 
                     icon={FaTrophy} 
                     label="RP Points" 
-                    value={user.rp || user.rp_points || "0"} 
+                    value={user.rp || user.rp_points || user.reputation_points || "0"} 
                     color="bg-gradient-to-r from-yellow-400 to-orange-500" 
                     fullWidth={true}
                   />
