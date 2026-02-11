@@ -6,6 +6,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.post import Post
 from app.models.friend_request import FriendRequest
+from app.models.help_request import HelpRequest 
 
 # -------------------------------------------------
 # Helpers (Private)
@@ -41,8 +42,33 @@ def _serialize_user(target_user, current_user_id):
         "profile_pic_url": target_user.profile_pic,
         "cover_photo_url": target_user.cover_photo,
         "created_at": target_user.created_at.isoformat(),
-        "role": getattr(target_user, 'role', 'User') # Safety fallback
+        "role": getattr(target_user, 'role', 'User'),
+        "reputation_points": getattr(target_user, 'reputation_points', 0)
     }
+
+    # 🟢 NEW: Check for Active Help Request & Send FULL Details
+    active_req = HelpRequest.query.filter_by(user_id=target_user.id, status='open').first()
+    
+    if active_req:
+        # 🛠️ FIX: Resolve Image URL correctly (Cloudinary vs Local)
+        req_image_url = None
+        if active_req.image_url:
+            if active_req.image_url.startswith("http"):
+                req_image_url = active_req.image_url
+            else:
+                req_image_url = url_for("static", filename=f"uploads/{active_req.image_url}", _external=True)
+
+        user_data["active_help_request"] = {
+            "id": active_req.id,
+            "title": active_req.title,
+            "description": active_req.description,
+            "github_link": active_req.github_link,
+            "tags": active_req.tags,
+            "image_url": req_image_url, # 👈 Now correctly populated
+            "created_at": active_req.created_at.isoformat()
+        }
+    else:
+        user_data["active_help_request"] = None
 
     # Friendship status logic
     is_friend = False
@@ -118,9 +144,9 @@ def _serialize_post(post):
         "id": post.id,
         "title": post.title,
         "description": post.description,
-        "file_url": image_url,  # Matches Frontend expectations
-        "created_at": post.timestamp.isoformat() if post.timestamp else None, # Matches Frontend
-        "user": user_data # Includes user details for card header
+        "file_url": image_url, 
+        "created_at": post.timestamp.isoformat() if post.timestamp else None,
+        "user": user_data 
     }
 
 # -------------------------------------------------
@@ -158,7 +184,6 @@ def get_profile_posts(user_id):
         .all()
     )
 
-    # Use the new helper to return FULL details (User info + Correct Image URL)
     return jsonify([_serialize_post(p) for p in posts]), 200
 
 def update_user_profile():

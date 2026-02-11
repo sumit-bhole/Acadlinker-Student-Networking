@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import UserPosts from "../components/UserPosts"; // Aapka existing UserPosts component
+import UserPosts from "../components/UserPosts";
 import { useParams, Link } from "react-router-dom";
+import AskHelpCard from "../components/AskHelpCard"; // 👈 IMPORT THIS
 import api from "../api/axios";
 import {
   FaEnvelope,
@@ -28,8 +29,6 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState("posts");
   const [processingAction, setProcessingAction] = useState(false);
 
-  // FIX: String conversion added to ensure types match (e.g., "5" vs 5)
-  // Isse Create Post ka form wapas dikhne lagega agar aap owner hain.
   const isCurrentUser = currentUser && String(currentUser.id) === String(userId);
 
   const fetchUserData = async () => {
@@ -216,17 +215,32 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6">
-      <div className="max-w-7xl mx-auto">
+    // FIX 1: Parent is min-h-screen (auto height) on mobile, h-screen (fixed) on desktop
+    <div className="min-h-screen md:h-screen bg-gray-50 py-8 px-4 sm:px-6 overflow-y-auto md:overflow-hidden">
+      
+      <style>
+        {`
+          .no-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}
+      </style>
+
+      <div className="max-w-7xl mx-auto h-full">
         
-        {/* Gap between left and right sections */}
-        <div className="flex flex-col md:flex-row gap-6">
+        {/* FIX 2: Flex container handles height only on desktop */}
+        <div className="flex flex-col md:flex-row gap-6 h-auto md:h-full items-start">
           
           {/* =======================
               LEFT SIDEBAR (Profile Card)
+              FIX 3: h-auto on mobile (scrolls normally), fixed height on desktop
              ======================= */}
-          <div className="w-full md:w-2/5 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden sticky top-6">
+          <div className="w-full md:w-2/5 flex-shrink-0 h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar rounded-2xl">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
               
               {/* Cover Photo */}
               <div className="relative h-36 bg-gradient-to-r from-gray-300 to-gray-400">
@@ -236,7 +250,6 @@ const Profile = () => {
                   className="w-full h-full object-cover"
                 />
                 
-                {/* Centered Profile Picture overlapping bottom */}
                 <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
                   <div className="relative">
                     <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
@@ -257,12 +270,8 @@ const Profile = () => {
               <div className="px-6 pt-20 pb-8 text-center">
                 <div className="mb-6">
                   <div className="flex items-center justify-center gap-2 mb-1">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                      {user.full_name}
-                    </h1>
-                    {user.is_verified && (
-                      <FaCheck className="text-blue-500 text-sm" title="Verified" />
-                    )}
+                    <h1 className="text-2xl font-bold text-gray-900">{user.full_name}</h1>
+                    {user.is_verified && <FaCheck className="text-blue-500 text-sm" title="Verified" />}
                   </div>
                   <p className="text-gray-600 flex items-center justify-center gap-2">
                     <FaBriefcase className="text-gray-400" />
@@ -270,12 +279,10 @@ const Profile = () => {
                   </p>
                 </div>
 
-                {/* Friend/Edit Button */}
                 <div className="w-full max-w-xs mx-auto mb-8">
                   {renderFriendButton()}
                 </div>
 
-                {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3 mb-8">
                   <StatCard icon={FaUserFriends} label="Friends" value={user.friend_count || "0"} color="bg-gradient-to-r from-blue-500 to-cyan-400" />
                   <StatCard icon={FiSend} label="Posts" value={user.post_count || "0"} color="bg-gradient-to-r from-purple-500 to-pink-400" />
@@ -336,8 +343,17 @@ const Profile = () => {
 
           {/* =======================
               RIGHT CONTENT (Posts)
+              FIX 4: h-auto on mobile, fixed on desktop
              ======================= */}
-          <div className="w-full md:w-3/5">
+          <div className="w-full md:w-3/5 h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar pb-6">
+            
+            {/* 🆕 ASK HELP CARD (Only on own profile) */}
+            {isCurrentUser && (
+                <div className="mb-8">
+                    <AskHelpCard user={user} onRefresh={fetchUserData} />
+                </div>
+            )}            
+            
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {isCurrentUser ? "Your Posts" : `${user.full_name}'s Posts`}
@@ -370,11 +386,10 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Rendering Your UserPosts Component Here */}
               <div className="p-4 md:p-6">
                 <UserPosts
                   userId={userId}
-                  isCurrentUser={isCurrentUser} // Ensure this is correctly passed
+                  isCurrentUser={isCurrentUser}
                 />
               </div>
             </div>
