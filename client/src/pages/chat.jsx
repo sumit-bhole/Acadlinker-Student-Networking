@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../api/axios";
 import Sidebar from "../components/Chat/Sidebar";
 import ChatHeader from "../components/Chat/ChatHeader";
 import MessageList from "../components/Chat/MessageList";
 import MessageInput from "../components/Chat/MessageInput";
 import EmptyState from "../components/Chat/EmptyState";
+// Removed ArrowLeft import as we will use the one inside ChatHeader
 
 const ChatApp = () => {
   const [friends, setFriends] = useState([]);
@@ -14,7 +15,9 @@ const ChatApp = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [loadingChat, setLoadingChat] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(true);
+  
+  // Mobile State: true = show friend list, false = show chat
+  const [showMobileFriendList, setShowMobileFriendList] = useState(true);
 
   // FETCH FRIEND LIST
   useEffect(() => {
@@ -26,29 +29,33 @@ const ChatApp = () => {
 
   // FETCH CHAT HISTORY
   const loadChat = async (friendId) => {
-    if (!friendId) return; 
+    if (!friendId) return;
     setLoadingChat(true);
     try {
       const res = await api.get(`/api/messages/chat/${friendId}`);
       setMessages(res.data.messages || []);
     } catch (err) {
       console.error("Failed to load chat history:", err);
-      setMessages([]); 
+      setMessages([]);
     } finally {
       setLoadingChat(false);
     }
   };
 
-  // Watcher for friend selection
-  useEffect(() => {
-    if (currentFriend?.id) {
-      loadChat(currentFriend.id);
-      // On mobile, switch to chat view when friend is selected
-      if (window.innerWidth < 1024) {
-        setIsMobileSidebarOpen(false);
-      }
-    }
-  }, [currentFriend?.id]);
+  // Handle Friend Selection
+  const handleFriendSelect = (friend) => {
+    setCurrentFriend(friend);
+    setMessages([]);
+    loadChat(friend.id);
+    // On mobile: Hide list, show chat
+    setShowMobileFriendList(false);
+  };
+
+  // Handle Back Button (Mobile Only)
+  const handleMobileBack = () => {
+    setShowMobileFriendList(true);
+    setCurrentFriend(null); 
+  };
 
   // SEND MESSAGE
   const sendMessage = async () => {
@@ -61,7 +68,7 @@ const ChatApp = () => {
     const oldText = newMessageContent;
     const oldFile = selectedFile;
 
-    // Optimistic UI updates
+    // Optimistic UI update
     const tempMessage = {
       id: Date.now(),
       content: newMessageContent,
@@ -76,112 +83,85 @@ const ChatApp = () => {
 
     try {
       const res = await api.post(`/api/messages/send/${currentFriend.id}`, formData);
-      // Replace optimistic message with real one
       setMessages((prev) => prev.map(msg => 
         msg.id === tempMessage.id ? res.data : msg
       ));
     } catch (err) {
       console.log("Message sending failed", err);
-      // Revert if failed
       setMessages((prev) => prev.filter(msg => msg.id !== tempMessage.id));
       setNewMessageContent(oldText);
       setSelectedFile(oldFile);
     }
   };
 
-  // Handle window resize for mobile responsiveness
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        setIsMobileSidebarOpen(true);
-      } else if (currentFriend) {
-        setIsMobileSidebarOpen(false);
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize(); // Initial check
-
-    return () => window.removeEventListener("resize", handleResize);
-  }, [currentFriend]);
-
-  const handleCloseChat = () => {
-    setCurrentFriend(null);
-    setMessages([]);
-    if (window.innerWidth < 1024) {
-      setIsMobileSidebarOpen(true);
-    }
-  };
-
   return (
-    <div className="flex h-screen bg-[#f8fafc] text-slate-800 antialiased font-sans overflow-hidden">
-      {/* Mobile Toggle Button */}
-      {!isMobileSidebarOpen && currentFriend && (
-        <button
-          onClick={() => setIsMobileSidebarOpen(true)}
-          className="lg:hidden absolute top-4 left-4 z-50 p-2 bg-white rounded-full shadow-md"
-        >
-          <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      )}
-
-      {/* Sidebar - Hidden on mobile when chat is open */}
+    <div className="flex w-full bg-[#f8fafc] text-slate-800 antialiased font-sans overflow-hidden h-[calc(100vh-4rem)] md:h-[calc(100dvh-4rem)]">
+      
+      {/* =========================================
+          LEFT COLUMN: Sidebar / Friend List
+         ========================================= */}
       <div className={`
-        absolute lg:relative z-40 h-full w-full lg:w-80 xl:w-96 transition-transform duration-300
-        ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        flex-shrink-0 bg-white border-r border-gray-200 h-full transition-all duration-300
+        ${showMobileFriendList ? "w-full" : "hidden"} 
+        md:block md:w-80 lg:w-96
       `}>
         <Sidebar
           friends={friends}
           loadingFriends={loadingFriends}
           currentFriend={currentFriend}
-          onFriendSelect={(friend) => {
-            setCurrentFriend(friend);
-            setMessages([]);
-          }}
+          onFriendSelect={handleFriendSelect}
           onRefreshChat={loadChat}
         />
       </div>
 
-      {/* Chat Area */}
+      {/* =========================================
+          RIGHT COLUMN: Chat Area
+         ========================================= */}
       <div className={`
-        flex-1 flex flex-col bg-[#f1f5f9] transition-all duration-300
-        ${!isMobileSidebarOpen ? "w-full" : "hidden lg:flex"}
+        flex-1 flex flex-col h-full bg-[#f1f5f9] transition-all duration-300 relative
+        ${!showMobileFriendList ? "w-full block" : "hidden"} 
+        md:flex md:w-auto
       `}>
         {!currentFriend ? (
           <EmptyState />
         ) : (
           <>
-            <ChatHeader 
-              currentFriend={currentFriend} 
-              onCloseChat={handleCloseChat}
-            />
-            <MessageList 
-              messages={messages} 
-              loadingChat={loadingChat}
-              currentFriend={currentFriend}
-            />
-            <MessageInput
-              newMessageContent={newMessageContent}
-              selectedFile={selectedFile}
-              onContentChange={setNewMessageContent}
-              onFileSelect={setSelectedFile}
-              onRemoveFile={() => setSelectedFile(null)}
-              onSendMessage={sendMessage}
-              disabled={loadingChat}
-            />
+            {/* Header Wrapper */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm z-10">
+              {/* 👇 FIX: Removed the extra <button> I added earlier.
+                 We now pass handleMobileBack to the onCloseChat prop.
+                 This makes the ChatHeader's OWN back button work correctly.
+              */}
+              <ChatHeader 
+                 currentFriend={currentFriend} 
+                 onCloseChat={handleMobileBack} 
+              />
+            </div>
+
+            {/* Messages Area - Takes remaining space */}
+            <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
+               <MessageList 
+                 messages={messages} 
+                 loadingChat={loadingChat}
+                 currentFriend={currentFriend}
+               />
+            </div>
+            
+            {/* Input Area - Fixed at bottom */}
+            <div className="flex-shrink-0 w-full bg-white border-t border-gray-200">
+               <MessageInput
+                 newMessageContent={newMessageContent}
+                 selectedFile={selectedFile}
+                 onContentChange={setNewMessageContent}
+                 onFileSelect={setSelectedFile}
+                 onRemoveFile={() => setSelectedFile(null)}
+                 onSendMessage={sendMessage}
+                 disabled={loadingChat}
+               />
+            </div>
           </>
         )}
       </div>
-
-      {/* Mobile overlay */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
     </div>
   );
 };
