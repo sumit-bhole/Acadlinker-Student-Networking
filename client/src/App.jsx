@@ -10,9 +10,15 @@ import Home from "./pages/Home";
 import ChatApp from "./pages/chat";
 import NotificationsPage from './pages/NotificationsPage';
 import SearchPage from "./pages/SearchPage";
-import HelpDetails from "./pages/HelpDetails"; // 👈 Import
-import HelpFeedPage from "./pages/HelpFeedPage"; // 👈 Import this
+import HelpDetails from "./pages/HelpDetails";
+import HelpFeedPage from "./pages/HelpFeedPage";
 import { Loader2 } from "lucide-react";
+
+// 🆕 TEAM PAGES IMPORTS
+import TeamList from "./pages/Teams/TeamList";
+import CreateTeam from "./pages/Teams/CreateTeam";
+import MyTeams from "./pages/Teams/MyTeams";
+import TeamDetails from "./pages/Teams/TeamDetails";
 
 const App = () => {
   const { isAuthenticated, loading, currentUser } = useAuth();
@@ -78,22 +84,38 @@ const App = () => {
           element={isAuthenticated ? <ChatApp /> : <Navigate to="/auth" />}
         />
         
-        {/* 🔹 Chat (Specific User) - Optional if you have this route */}
+        {/* 🔹 Chat (Specific User) */}
         <Route
           path="/chat/:userId"
           element={isAuthenticated ? <ChatApp /> : <Navigate to="/auth" />}
         />
 
-        {/* 🔹 Help Feed (View All) */}
-      <Route 
-        path="/help/feed" 
-        element={isAuthenticated ? <HelpFeedPage /> : <Navigate to="/auth" />} 
-      />
-
-        {/* 🔹 HELP DETAILS (Protected Now) */}
+        {/* 🔹 Help Feed & Details */}
+        <Route 
+          path="/help/feed" 
+          element={isAuthenticated ? <HelpFeedPage /> : <Navigate to="/auth" />} 
+        />
         <Route 
           path="/help/:requestId" 
           element={isAuthenticated ? <HelpDetails /> : <Navigate to="/auth" />} 
+        />
+
+        {/* 🆕 TEAMS ROUTES (Added Here) */}
+        <Route 
+          path="/teams" 
+          element={isAuthenticated ? <TeamList /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/teams/create" 
+          element={isAuthenticated ? <CreateTeam /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/teams/my" 
+          element={isAuthenticated ? <MyTeams /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/teams/:teamId" 
+          element={isAuthenticated ? <TeamDetails /> : <Navigate to="/auth" />} 
         />
 
       </Routes>

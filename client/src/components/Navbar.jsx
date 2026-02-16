@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Settings,
   Sparkles,
-  Zap // 👈 Added Zap icon for Help
+  Zap,
+  Briefcase // 👈 ADDED: Briefcase Icon for Team Projects
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import SearchBar from "./SearchBar";
@@ -59,6 +60,8 @@ const Navbar = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
     setMobileSearchOpen(false);
+    setTeamsDropdown(false); // Also close desktop dropdowns
+    setUserDropdown(false);
   }, [location.pathname]);
 
   // Prevent body scroll when mobile menu is open
@@ -149,13 +152,11 @@ const Navbar = () => {
                   : 'hover:bg-gray-700/50 hover:text-gray-200'
               }`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 5.197v-1a6 6 0 00-9-5.197M9 9a4 4 0 118 0" />
-              </svg>
+              <Users className="w-5 h-5" />
               <span className="text-xs mt-1">Friends</span>
             </Link>
 
-            {/* Teams Dropdown */}
+            {/* Teams Dropdown (UPDATED) */}
             <div className="relative">
               <button
                 onClick={() => setTeamsDropdown(!teamsDropdown)}
@@ -165,9 +166,7 @@ const Navbar = () => {
                     : 'hover:bg-gray-700/50 hover:text-gray-200'
                 }`}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+                <Briefcase className="w-5 h-5" /> {/* 👈 Changed to Briefcase */}
                 <span className="font-medium">Teams</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${teamsDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -194,13 +193,11 @@ const Navbar = () => {
                         className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                       >
                         <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3">
-                          <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
+                          <Search className="w-4 h-4 text-blue-400" /> {/* 👈 Search Icon for Finding */}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">All Teams</p>
-                          <p className="text-xs text-gray-400">Browse all teams</p>
+                          <p className="text-sm font-medium">Find Teams</p>
+                          <p className="text-xs text-gray-400">Search for projects</p>
                         </div>
                       </Link>
                       <Link 
@@ -208,11 +205,11 @@ const Navbar = () => {
                         className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                       >
                         <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
-                          <Users className="w-4 h-4 text-purple-400" />
+                          <Briefcase className="w-4 h-4 text-purple-400" /> {/* 👈 Briefcase for Dashboard */}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">My Teams</p>
-                          <p className="text-xs text-gray-400">Teams you manage</p>
+                          <p className="text-sm font-medium">My Dashboard</p> {/* 👈 Renamed for clarity */}
+                          <p className="text-xs text-gray-400">Your active teams</p>
                         </div>
                       </Link>
                     </div>
@@ -400,7 +397,7 @@ const Navbar = () => {
                   onClick={() => setMobileMenuOpen(false)}
                 />
                 
-                {/* 🆕 ADDED: Community Help Link (Only visible on mobile) */}
+                {/* Community Help Link */}
                 <MobileNavItem
                   to="/help/feed"
                   icon={<Zap className="w-5 h-5" />}
@@ -411,57 +408,45 @@ const Navbar = () => {
 
                 <MobileNavItem
                   to="/friends"
-                  icon={
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 5.197v-1a6 6 0 00-9-5.197M9 9a4 4 0 118 0" />
-                    </svg>
-                  }
+                  icon={<Users className="w-5 h-5" />}
                   label="Friends"
                   isActive={isActive('/friends')}
                   onClick={() => setMobileMenuOpen(false)}
                 />
-                <div className="space-y-1">
-                  <div className={`flex items-center justify-between p-3 rounded-lg ${isActive('/teams') ? 'bg-blue-500/20' : 'hover:bg-gray-800/50'}`}>
-                    <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                      <span className="font-medium text-gray-300">Teams</span>
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div className="pl-4 space-y-1">
-                    <MobileNavItem
-                      to="/teams"
-                      icon={
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      }
-                      label="All Teams"
-                      isActive={isActive('/teams')}
-                      onClick={() => setMobileMenuOpen(false)}
-                      indent
-                    />
-                    <MobileNavItem
-                      to="/teams/my"
-                      icon={<Users className="w-4 h-4" />}
-                      label="My Teams"
-                      isActive={isActive('/teams/my')}
-                      onClick={() => setMobileMenuOpen(false)}
-                      indent
-                    />
-                    <MobileNavItem
-                      to="/teams/create"
-                      icon={<PlusCircle className="w-4 h-4" />}
-                      label="Create Team"
-                      isActive={isActive('/teams/create')}
-                      onClick={() => setMobileMenuOpen(false)}
-                      indent
-                      accent
-                    />
-                  </div>
+
+                {/* 🆕 UPDATED: Mobile Teams Section */}
+                <div className="space-y-1 pt-2 pb-2 border-t border-gray-800 mt-2">
+                  <p className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Teams</p>
+                  
+                  <MobileNavItem
+                    to="/teams"
+                    icon={<Search className="w-4 h-4" />} // 👈 Search icon for finding teams
+                    label="Find Teams"
+                    isActive={isActive('/teams')}
+                    onClick={() => setMobileMenuOpen(false)}
+                    indent
+                  />
+                  
+                  <MobileNavItem
+                    to="/teams/my"
+                    icon={<Briefcase className="w-4 h-4" />} // 👈 Briefcase for My Dashboard
+                    label="My Dashboard"
+                    isActive={isActive('/teams/my')}
+                    onClick={() => setMobileMenuOpen(false)}
+                    indent
+                  />
+                  
+                  <MobileNavItem
+                    to="/teams/create"
+                    icon={<PlusCircle className="w-4 h-4" />}
+                    label="Create Team"
+                    isActive={isActive('/teams/create')}
+                    onClick={() => setMobileMenuOpen(false)}
+                    indent
+                    accent
+                  />
                 </div>
+
                 <MobileNavItem
                   to="/chat"
                   icon={<MessageSquare className="w-5 h-5" />}
@@ -469,6 +454,7 @@ const Navbar = () => {
                   isActive={isActive('/chat')}
                   onClick={() => setMobileMenuOpen(false)}
                 />
+                
                 {ENABLE_NOTIFICATIONS && (
                   <MobileNavItem
                     to="/notifications"
@@ -546,7 +532,6 @@ const MobileNavItem = ({ to, icon, label, isActive, onClick, badge, indent, acce
       <div className={`${accent ? 'text-blue-400' : 'text-gray-400'}`}>
         {icon}
       </div>
-      {/* 🛠️ FIX: Added 'text-gray-300' default color so it's not black */}
       <span className={`${accent ? 'text-blue-400 font-medium' : 'text-gray-300'}`}>{label}</span>
     </div>
     {badge && (
