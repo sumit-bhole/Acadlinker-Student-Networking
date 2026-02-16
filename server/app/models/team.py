@@ -68,3 +68,17 @@ class JoinRequest(db.Model):
     status = db.Column(db.String(20), default='pending')
     message = db.Column(db.Text, nullable=True) # Pitch: Why should we hire you?
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ... (Keep existing Team, TeamMember, TeamInvite, JoinRequest classes)
+
+class TeamMessage(db.Model):
+    __tablename__ = 'team_message'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    sender_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    sender = db.relationship('User', backref='team_messages')

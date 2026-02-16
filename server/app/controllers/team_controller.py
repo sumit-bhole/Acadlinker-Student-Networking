@@ -2,7 +2,61 @@ from flask import jsonify, request, g
 from app.extensions import db
 from app.models.team import Team, TeamMember, TeamInvite, JoinRequest
 from app.models.user import User
+# ... (Keep existing imports and functions)
+from app.models.team import TeamMessage # <--- Make sure to import TeamMessage
 
+def get_team_chat(team_id):
+    # Check membership
+    if not _get_membership(team_id, g.user_id):
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    messages = TeamMessage.query.filter_by(team_id=team_id).order_by(TeamMessage.timestamp.asc()).all()
+    
+    output = []
+    for msg in messages:
+        output.append({
+            'id': msg.id,
+            'content': msg.content,
+            'timestamp': msg.timestamp.isoformat(),
+            'sender': {
+                'id': msg.sender.id,
+                'full_name': msg.sender.full_name,
+                'profile_pic': msg.sender.profile_pic
+            },
+            'is_me': msg.sender_id == g.user_id
+        })
+    return jsonify(output), 200
+
+def send_team_message(team_id):
+    data = request.get_json()
+    content = data.get('content')
+    
+    if not content:
+        return jsonify({'error': 'Message cannot be empty'}), 400
+        
+    if not _get_membership(team_id, g.user_id):
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    msg = TeamMessage(
+        team_id=team_id,
+        sender_id=g.user_id,
+        content=content
+    )
+    db.session.add(msg)
+    db.session.commit()
+    
+    # Return the formatted message so frontend can append it instantly
+    return jsonify({
+        'id': msg.id,
+        'content': msg.content,
+        'timestamp': msg.timestamp.isoformat(),
+        'sender': {
+            'id': g.user.id, # g.user is usually available if using token_required correctly
+            'full_name': g.user.full_name,
+            'profile_pic': g.user.profile_pic
+        },
+        'is_me': True
+    }), 201
 # -------------------------------------------------
 # Helpers (Private)
 # -------------------------------------------------

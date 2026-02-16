@@ -7,7 +7,9 @@ from app.controllers.team_controller import (
     get_team_details,
     request_to_join_team,
     invite_friend_to_team,
-    respond_to_join_request
+    respond_to_join_request,
+    get_team_chat, 
+    send_team_message
 )
 
 team_bp = Blueprint('team', __name__, url_prefix='/api/teams')
@@ -46,3 +48,13 @@ def invite():
 @token_required
 def respond():
     return respond_to_join_request()
+
+@team_bp.route('/<int:team_id>/chat', methods=['GET'])
+@token_required
+def get_chat(team_id):
+    return get_team_chat(team_id)
+
+@team_bp.route('/<int:team_id>/chat', methods=['POST'])
+@token_required
+def send_chat(team_id):
+    return send_team_message(team_id)

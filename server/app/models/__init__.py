@@ -9,7 +9,7 @@ from .help_request import HelpRequest
 from .solution import Solution
 
 # 🆕 Team & Task Models
-from .team import Team, TeamMember, TeamInvite, JoinRequest
+from .team import Team, TeamMember, TeamInvite, JoinRequest, TeamMessage
 from .task import Task
 
 from .associations import friendships
