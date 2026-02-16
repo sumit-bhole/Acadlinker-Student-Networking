@@ -14,3 +14,7 @@ export const getTeamTasks = (teamId) => api.get(`/api/tasks/team/${teamId}`);
 export const createTask = (data) => api.post("/api/tasks/create", data);
 export const updateTaskStatus = (taskId, status) => api.patch(`/api/tasks/${taskId}/status`, { status });
 export const deleteTask = (taskId) => api.delete(`/api/tasks/${taskId}`);
+
+// ... existing exports
+export const getTeamChat = (teamId) => api.get(`/api/teams/${teamId}/chat`);
+export const sendTeamMessage = (teamId, content) => api.post(`/api/teams/${teamId}/chat`, { content });

@@ -3,7 +3,8 @@ import { useParams } from "react-router-dom";
 import { getTeamDetails, joinRequest } from "../../api/teamApi";
 import TaskBoard from "../../components/Teams/TaskBoard";
 import InviteModal from "../../components/Teams/InviteModal";
-import { Users, Lock, Globe, Plus, CheckCircle, Clock } from "lucide-react";
+import { Users, Lock, Globe, Plus, CheckCircle, Clock, MessageSquare } from "lucide-react";
+import TeamChat from "../../components/Teams/TeamChat";
 
 const TeamDetails = () => {
   const { teamId } = useParams();
@@ -79,7 +80,7 @@ const TeamDetails = () => {
 
           {/* Tabs */}
           <div className="flex gap-6 mt-8 border-b border-slate-100">
-            {['overview', 'tasks', 'members'].map(tab => (
+            {['overview', 'tasks', 'chat', 'members'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -135,6 +136,18 @@ const TeamDetails = () => {
         {activeTab === 'tasks' && (
           <TaskBoard teamId={team.id} isMember={team.is_member} />
         )}
+        // In the Content Area
+          {activeTab === 'chat' && (
+            team.is_member ? (
+              <TeamChat teamId={team.id} />
+            ) : (
+              <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
+                <MessageSquare size={40} className="mx-auto text-slate-300 mb-4"/>
+                <h3 className="text-lg font-semibold text-slate-700">Members Only</h3>
+                <p className="text-slate-500">You must join the team to view the chat.</p>
+              </div>
+            )
+          )}
 
         {activeTab === 'members' && (
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
