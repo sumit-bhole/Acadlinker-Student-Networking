@@ -40,6 +40,10 @@ class User(db.Model):
         lazy='dynamic'
     )
 
+    # 🆕 Teams Relationship
+    # accessing user.teams_membership will give list of TeamMember objects
+    teams_membership = db.relationship('TeamMember', backref='user', lazy=True)
+
     def __repr__(self):
         # Accessing __dict__ reads the value directly from memory.
         # It avoids triggering a database refresh, preventing the loop.

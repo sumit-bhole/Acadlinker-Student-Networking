@@ -69,6 +69,11 @@ def register_blueprints(app):
     from app.routes.main_routes import main_bp
     # from app.routes.notification_routes import notifications_bp 
     from app.routes.help_routes import help_bp
+    from app.routes.team_routes import team_bp
+    from app.routes.task_routes import task_bp
+
+    app.register_blueprint(team_bp)
+    app.register_blueprint(task_bp)
     app.register_blueprint(help_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(friends_bp)

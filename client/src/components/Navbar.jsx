@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Settings,
   Sparkles,
+  Briefcase,
   Zap // 👈 Added Zap icon for Help
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -208,7 +209,7 @@ const Navbar = () => {
                         className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                       >
                         <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
-                          <Users className="w-4 h-4 text-purple-400" />
+                          <Briefcase className="w-4 h-4 text-purple-400" />
                         </div>
                         <div>
                           <p className="text-sm font-medium">My Teams</p>
