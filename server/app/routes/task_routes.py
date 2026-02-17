@@ -9,6 +9,13 @@ from app.controllers.task_controller import (
 
 task_bp = Blueprint('task', __name__, url_prefix='/api/tasks')
 
+# app/routes/task_routes.py
+
+@task_bp.route('/<int:task_id>/status', methods=['PATCH']) # 👈 Ensure PATCH is here
+@token_required
+def update_status(task_id):
+    return update_task_status(task_id)
+
 @task_bp.route('/team/<int:team_id>', methods=['GET'])
 @token_required
 def get_team_tasks(team_id):

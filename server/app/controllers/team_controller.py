@@ -4,6 +4,7 @@ from app.models.team import Team, TeamMember, TeamInvite, JoinRequest
 from app.models.user import User
 # ... (Keep existing imports and functions)
 from app.models.team import TeamMessage # <--- Make sure to import TeamMessage
+from app.models.task import Task # Ensure Task is imported
 
 def get_team_chat(team_id):
     # Check membership
@@ -26,6 +27,7 @@ def get_team_chat(team_id):
             'is_me': msg.sender_id == g.user_id
         })
     return jsonify(output), 200
+# In app/controllers/team_controller.py
 
 def send_team_message(team_id):
     data = request.get_json()
@@ -45,15 +47,17 @@ def send_team_message(team_id):
     db.session.add(msg)
     db.session.commit()
     
-    # Return the formatted message so frontend can append it instantly
+    # 🟢 FIX: Fetch the user explicitly using g.user_id
+    current_user = User.query.get(g.user_id)
+    
     return jsonify({
         'id': msg.id,
         'content': msg.content,
         'timestamp': msg.timestamp.isoformat(),
         'sender': {
-            'id': g.user.id, # g.user is usually available if using token_required correctly
-            'full_name': g.user.full_name,
-            'profile_pic': g.user.profile_pic
+            'id': current_user.id,
+            'full_name': current_user.full_name,
+            'profile_pic': current_user.profile_pic
         },
         'is_me': True
     }), 201
@@ -71,7 +75,9 @@ def _serialize_team(team):
         'hiring_requirements': team.hiring_requirements,
         'creator_id': team.creator_id,
         'created_at': team.created_at.isoformat(),
-        'member_count': len(team.members)
+        'member_count': len(team.members),
+        'profile_pic': team.profile_pic,
+        'github_repo': team.github_repo
     }
 
 def _get_membership(team_id, user_id):
@@ -96,7 +102,9 @@ def create_new_team():
             privacy=data.get('privacy', 'public'),
             is_hiring=data.get('is_hiring', False),
             hiring_requirements=data.get('hiring_requirements', ''),
-            creator_id=g.user_id
+            creator_id=g.user_id,
+            profile_pic=data.get('profile_pic'),
+            github_repo=data.get('github_repo')
         )
         db.session.add(new_team)
         db.session.commit()
@@ -110,6 +118,32 @@ def create_new_team():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+# 2. Add Edit Logic (NEW)
+def edit_team(team_id):
+    team = Team.query.get(team_id)
+    if not team:
+        return jsonify({'error': 'Team not found'}), 404
+        
+    # Check permissions (Only Leader)
+    membership = _get_membership(team.id, g.user_id)
+    if not membership or membership.role != 'leader':
+        return jsonify({'error': 'Unauthorized'}), 403
+        
+    data = request.get_json()
+    
+    # Update fields if provided
+    if 'name' in data: team.name = data['name']
+    if 'description' in data: team.description = data['description']
+    if 'privacy' in data: team.privacy = data['privacy']
+    if 'is_hiring' in data: team.is_hiring = data['is_hiring']
+    if 'hiring_requirements' in data: team.hiring_requirements = data['hiring_requirements']
+    if 'profile_pic' in data: team.profile_pic = data['profile_pic']
+    if 'github_repo' in data: team.github_repo = data['github_repo']
+    
+    db.session.commit()
+    return jsonify({'message': 'Team updated', 'team': _serialize_team(team)}), 200
+
 
 def get_public_teams():
     # Fetch all public teams
@@ -135,12 +169,13 @@ def get_team_details(team_id):
 
     membership = _get_membership(team.id, g.user_id)
     is_member = membership is not None
+    is_leader = membership and membership.role == 'leader'
     
     # Privacy Guard
     if team.privacy == 'private' and not is_member:
         return jsonify({'error': 'Access denied. This is a private team.'}), 403
 
-    # Serialize Members with User details
+    # 1. Serialize Members
     members_data = []
     for m in team.members:
         user = User.query.get(m.user_id)
@@ -153,8 +188,38 @@ def get_team_details(team_id):
                 'joined_at': m.joined_at.isoformat()
             })
 
+    # 2. Serialize Pending Join Requests (Only for Leaders)
+    requests_data = []
+    if is_leader:
+        pending_reqs = JoinRequest.query.filter_by(team_id=team.id, status='pending').all()
+        for req in pending_reqs:
+            requester = User.query.get(req.user_id)
+            requests_data.append({
+                'id': req.id,
+                'user_id': req.user_id,
+                'full_name': requester.full_name,
+                'profile_pic': requester.profile_pic,
+                'message': req.message,
+                'created_at': req.created_at.isoformat()
+            })
+
+    # 3. Serialize Recent Pending Tasks (Top 3)
+    tasks_data = []
+    if is_member:
+        # Fetch pending/in-progress tasks
+        recent_tasks = Task.query.filter_by(team_id=team.id).filter(Task.status != 'done').order_by(Task.due_date.asc()).limit(3).all()
+        for t in recent_tasks:
+            tasks_data.append({
+                'id': t.id,
+                'title': t.title,
+                'priority': t.priority, # 'high', 'medium', 'low'
+                'status': t.status
+            })
+
     response = _serialize_team(team)
     response['members'] = members_data
+    response['join_requests'] = requests_data # 🆕
+    response['pending_tasks'] = tasks_data # 🆕
     response['is_member'] = is_member
     response['my_role'] = membership.role if is_member else None
     
@@ -235,3 +300,50 @@ def respond_to_join_request():
 
     db.session.commit()
     return jsonify({'message': f'Request {action}ed'}), 200
+
+def get_my_invites():
+    # 1. GET INVITES RECEIVED (Where I am the receiver)
+    # We only care about 'pending' ones for the dashboard
+    received_invites = TeamInvite.query.filter_by(receiver_id=g.user_id, status='pending').all()
+    
+    # 2. GET REQUESTS SENT (Where I am the sender)
+    # We want to see all statuses (pending/accepted/rejected) to track progress
+    sent_requests = JoinRequest.query.filter_by(user_id=g.user_id).order_by(JoinRequest.created_at.desc()).all()
+
+    return jsonify({
+        'received_invites': [{
+            'id': inv.id,
+            'team_name': inv.team.name,
+            'sender_name': inv.sender.full_name, # Assuming User model has full_name
+            'message': inv.message,
+            'sent_at': inv.created_at.isoformat()
+        } for inv in received_invites],
+        
+        'sent_requests': [{
+            'id': req.id,
+            'team_name': req.team.name,
+            'status': req.status, # 'pending', 'accepted', 'rejected'
+            'sent_at': req.created_at.isoformat()
+        } for req in sent_requests]
+    }), 200
+
+# Function to Respond to an Invite (Accept/Reject)
+def respond_to_invite():
+    data = request.get_json()
+    invite_id = data.get('invite_id')
+    action = data.get('action') # 'accept' or 'reject'
+
+    invite = TeamInvite.query.get(invite_id)
+    if not invite or invite.receiver_id != g.user_id:
+        return jsonify({'error': 'Invite not found or unauthorized'}), 404
+
+    if action == 'accept':
+        invite.status = 'accepted'
+        # Add user to the team members table
+        new_member = TeamMember(team_id=invite.team_id, user_id=g.user_id, role='member')
+        db.session.add(new_member)
+    else:
+        invite.status = 'rejected'
+
+    db.session.commit()
+    return jsonify({'message': f'Invite {action}ed'}), 200

@@ -10,10 +10,12 @@ class Task(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
     
-    # Status Columns: 'todo', 'in_progress', 'done'
+    # Status: 'todo', 'in_progress', 'done'
     status = db.Column(db.String(20), default='todo')
+
+    # 🆕 ADD THIS LINE 👇
+    priority = db.Column(db.String(20), default='medium') # 'high', 'medium', 'low'
     
-    # Assigned Member (Optional - task can be unassigned)
     assigned_to_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=True)
     
     due_date = db.Column(db.DateTime, nullable=True)
