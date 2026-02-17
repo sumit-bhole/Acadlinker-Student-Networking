@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom"; // 👈 Added useParams
 import { useAuth } from "./contexts/AuthContext";
 import Navbar from "./components/Navbar";
 import Profile from "./pages/Profile";
@@ -14,11 +14,28 @@ import HelpDetails from "./pages/HelpDetails";
 import HelpFeedPage from "./pages/HelpFeedPage";
 import { Loader2 } from "lucide-react";
 
-// 🆕 TEAM PAGES IMPORTS
+// 🆕 TEAM LAYOUT & PAGES IMPORTS
+import TeamLayout from "./layouts/TeamLayout";
 import TeamList from "./pages/Teams/TeamList";
 import CreateTeam from "./pages/Teams/CreateTeam";
 import MyTeams from "./pages/Teams/MyTeams";
-import TeamDetails from "./pages/Teams/TeamDetails";
+import TeamDashboard from "./pages/Teams/TeamDashboard";
+import TeamMembers from "./pages/Teams/TeamMembers";
+
+// 🆕 COMPONENT WRAPPERS
+// These wrap the components to pass the ID from the URL automatically
+import TeamChat from "./components/Teams/TeamChat";
+import TaskBoard from "./components/Teams/TaskBoard";
+
+const TeamChatWrapper = () => { 
+  const { teamId } = useParams(); 
+  return <TeamChat teamId={teamId} />; 
+};
+
+const TaskBoardWrapper = () => { 
+  const { teamId } = useParams(); 
+  return <TaskBoard teamId={teamId} isMember={true} />; 
+};
 
 const App = () => {
   const { isAuthenticated, loading, currentUser } = useAuth();
@@ -34,7 +51,7 @@ const App = () => {
 
   return (
     <BrowserRouter>
-      {isAuthenticated && <Navbar />} {/* Optional: Hide Navbar if not logged in */}
+      {isAuthenticated && <Navbar />} 
       
       <Routes>
         {/* 🔹 Default redirect */}
@@ -100,7 +117,8 @@ const App = () => {
           element={isAuthenticated ? <HelpDetails /> : <Navigate to="/auth" />} 
         />
 
-        {/* 🆕 TEAMS ROUTES (Added Here) */}
+        {/* 🚀 TEAMS GLOBAL ROUTES */}
+        {/* These pages show the Navbar and look like standard pages */}
         <Route 
           path="/teams" 
           element={isAuthenticated ? <TeamList /> : <Navigate to="/auth" />} 
@@ -113,10 +131,15 @@ const App = () => {
           path="/teams/my" 
           element={isAuthenticated ? <MyTeams /> : <Navigate to="/auth" />} 
         />
-        <Route 
-          path="/teams/:teamId" 
-          element={isAuthenticated ? <TeamDetails /> : <Navigate to="/auth" />} 
-        />
+
+        {/* 🚀 TEAM WORKSPACE (NESTED ROUTES) */}
+        {/* This replaces the old /teams/:teamId route. It loads the Sidebar Layout. */}
+        <Route path="/teams/:teamId" element={isAuthenticated ? <TeamLayout /> : <Navigate to="/auth" />}>
+          <Route index element={<TeamDashboard />} />         {/* Default view: Dashboard */}
+          <Route path="chat" element={<TeamChatWrapper />} /> {/* /teams/:id/chat */}
+          <Route path="tasks" element={<TaskBoardWrapper />} /> {/* /teams/:id/tasks */}
+          <Route path="members" element={<TeamMembers />} />  {/* /teams/:id/members */}
+        </Route>
 
       </Routes>
     </BrowserRouter>

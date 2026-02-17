@@ -9,10 +9,28 @@ from app.controllers.team_controller import (
     invite_friend_to_team,
     respond_to_join_request,
     get_team_chat, 
-    send_team_message
+    send_team_message,
+    get_my_invites, 
+    respond_to_invite,
+    edit_team
 )
 
 team_bp = Blueprint('team', __name__, url_prefix='/api/teams')
+
+@team_bp.route('/<int:team_id>/edit', methods=['PUT'])
+@token_required
+def update_team(team_id):
+    return edit_team(team_id)
+
+@team_bp.route('/my-invites', methods=['GET'])
+@token_required
+def my_invites():
+    return get_my_invites()
+
+@team_bp.route('/respond-invite', methods=['POST'])
+@token_required
+def respond_invite():
+    return respond_to_invite()
 
 @team_bp.route('/create', methods=['POST'])
 @token_required

@@ -7,6 +7,10 @@ class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
+
+    # 🆕 NEW FIELDS
+    profile_pic = db.Column(db.String(255), nullable=True) # URL to image
+    github_repo = db.Column(db.String(255), nullable=True) # e.g. "facebook/react"
     
     # 🔒 Privacy & Hiring Settings
     # 'public' (visible to all) or 'private' (invite only)
@@ -53,8 +57,12 @@ class TeamInvite(db.Model):
     
     # Status: 'pending', 'accepted', 'rejected'
     status = db.Column(db.String(20), default='pending')
-    message = db.Column(db.Text, nullable=True) # Why are you inviting them?
+    message = db.Column(db.Text, nullable=True) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # 🟢 NEW: Add these relationships so 'inv.sender' works in the controller
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_team_invites')
+    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_team_invites')
 
 class JoinRequest(db.Model):
     """User requests to join a Public team"""
