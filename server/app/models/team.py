@@ -44,6 +44,7 @@ class TeamMember(db.Model):
     # Role: 'leader' or 'member'
     role = db.Column(db.String(20), default='member')
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('team_id', 'user_id', name='_team_user_uc'),)
 
 class TeamInvite(db.Model):
     """Leader invites a friend to join"""
