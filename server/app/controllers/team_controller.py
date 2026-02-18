@@ -161,7 +161,6 @@ def get_my_teams():
         output.append(team_data)
         
     return jsonify(output), 200
-
 def get_team_details(team_id):
     team = Team.query.get(team_id)
     if not team:
@@ -216,10 +215,18 @@ def get_team_details(team_id):
                 'status': t.status
             })
 
+    # 4. 🆕 Serialize Pending Invites (IDs only)
+    # This allows the UI to show "Sent" instead of "Invite" for users already invited
+    pending_invite_ids = []
+    if is_leader:
+        sent_invites = TeamInvite.query.filter_by(team_id=team.id, status='pending').all()
+        pending_invite_ids = [inv.receiver_id for inv in sent_invites]
+
     response = _serialize_team(team)
     response['members'] = members_data
-    response['join_requests'] = requests_data # 🆕
-    response['pending_tasks'] = tasks_data # 🆕
+    response['join_requests'] = requests_data
+    response['pending_tasks'] = tasks_data
+    response['pending_invite_ids'] = pending_invite_ids # 👈 Added field
     response['is_member'] = is_member
     response['my_role'] = membership.role if is_member else None
     
