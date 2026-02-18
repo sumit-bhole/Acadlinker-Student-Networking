@@ -15,6 +15,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { getTeamDetails } from "../api/teamApi";
+import TeamAIChat from "../components/Teams/TeamAIChat";
 
 const TeamLayout = () => {
   const { teamId } = useParams();
@@ -151,6 +152,8 @@ const TeamLayout = () => {
            <Outlet context={{ team, isLeader: team.my_role === 'leader' }} />
         </div>
       </main>
+
+      <TeamAIChat teamId={team.id} />
 
       {/* 📱 MOBILE BOTTOM NAV */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-white border-t border-slate-200 z-40 flex items-center justify-around pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">

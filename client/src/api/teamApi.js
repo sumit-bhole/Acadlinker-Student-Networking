@@ -13,6 +13,8 @@ export const respondToRequest = (data) => api.post("/api/teams/respond-request",
 // 🆕 NEW: Fetch User's Personal Invites & Sent Requests
 export const getMyInvites = () => api.get("/api/teams/my-invites"); 
 export const respondToInvite = (data) => api.post("/api/teams/respond-invite", data); // Accept/Reject invite
+// src/api/teamApi.js
+export const removeMember = (teamId, userId) => api.delete(`/api/teams/${teamId}/members/${userId}`);
 
 // Task Endpoints
 export const getTeamTasks = (teamId) => api.get(`/api/tasks/team/${teamId}`);

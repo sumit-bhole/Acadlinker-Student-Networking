@@ -5,6 +5,7 @@ from app.controllers.team_controller import (
     get_public_teams,
     get_my_teams,
     get_team_details,
+    remove_team_member,
     request_to_join_team,
     invite_friend_to_team,
     respond_to_join_request,
@@ -14,6 +15,7 @@ from app.controllers.team_controller import (
     respond_to_invite,
     edit_team
 )
+from app.controllers.ai_controller import (chat_with_project_manager, get_chat_history)
 
 team_bp = Blueprint('team', __name__, url_prefix='/api/teams')
 
@@ -76,3 +78,20 @@ def get_chat(team_id):
 @token_required
 def send_chat(team_id):
     return send_team_message(team_id)
+
+# app/routes/team_routes.py
+
+@team_bp.route('/<int:team_id>/members/<user_id>', methods=['DELETE'])
+@token_required
+def remove_member(team_id, user_id):
+    return remove_team_member(team_id, user_id)
+
+@team_bp.route('/<int:team_id>/ai-chat', methods=['POST'])
+@token_required
+def ai_chat(team_id):
+    return chat_with_project_manager(team_id)
+
+@team_bp.route('/<int:team_id>/ai-history', methods=['GET'])
+@token_required
+def ai_history(team_id):
+    return get_chat_history(team_id)

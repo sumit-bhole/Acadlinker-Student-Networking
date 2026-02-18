@@ -354,3 +354,30 @@ def respond_to_invite():
 
     db.session.commit()
     return jsonify({'message': f'Invite {action}ed'}), 200
+
+# app/controllers/team_controller.py
+
+def remove_team_member(team_id, user_id):
+    """Remove a member from the team (Kick)"""
+    
+    # 1. Verify Requester is Leader
+    requester_membership = _get_membership(team_id, g.user_id)
+    if not requester_membership or requester_membership.role != 'leader':
+        return jsonify({'error': 'Only leaders can remove members'}), 403
+
+    # 2. Prevent removing yourself (Leader cannot kick self, must leave instead)
+    if str(g.user_id) == str(user_id):
+        return jsonify({'error': 'You cannot remove yourself. Delete the team instead.'}), 400
+
+    # 3. Find the member to remove
+    member_to_remove = TeamMember.query.filter_by(team_id=team_id, user_id=user_id).first()
+    if not member_to_remove:
+        return jsonify({'error': 'Member not found'}), 404
+
+    try:
+        db.session.delete(member_to_remove)
+        db.session.commit()
+        return jsonify({'message': 'Member removed successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
