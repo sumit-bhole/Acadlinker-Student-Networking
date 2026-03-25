@@ -15,13 +15,25 @@ import {
   Settings,
   Sparkles,
   Zap,
-  Briefcase // 👈 ADDED: Briefcase Icon for Team Projects
+  Briefcase 
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import SearchBar from "./SearchBar";
 import api from "../api/axios";
 
 const ENABLE_NOTIFICATIONS = false;
+
+// 🟢 SMART INITIALS HELPERS
+const hasValidProfilePic = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  if (url.includes("default")) return false;
+  return true;
+};
+
+const getInitials = (name) => {
+  if (!name) return "U"; // Default to 'U' for User if no name exists
+  return name.charAt(0).toUpperCase();
+};
 
 const Navbar = () => {
   const { logout, currentUser } = useAuth();
@@ -56,15 +68,13 @@ const Navbar = () => {
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
     setMobileSearchOpen(false);
-    setTeamsDropdown(false); // Also close desktop dropdowns
+    setTeamsDropdown(false); 
     setUserDropdown(false);
   }, [location.pathname]);
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -81,9 +91,8 @@ const Navbar = () => {
   return (
     <>
       <nav className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white px-4 md:px-6 h-16 flex items-center justify-between shadow-lg border-b border-blue-500/20 sticky top-0 z-50">
-        {/* Left Section: Brand & Mobile Menu Toggle */}
+        
         <div className="flex items-center space-x-3">
-          {/* Mobile Menu Toggle */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
@@ -96,7 +105,6 @@ const Navbar = () => {
             )}
           </button>
 
-          {/* Brand */}
           <Link 
             to="/" 
             className="flex items-center space-x-2 text-xl font-bold text-white hover:text-blue-300 transition-colors"
@@ -112,14 +120,11 @@ const Navbar = () => {
           </Link>
         </div>
 
-        {/* Center Section: Search Bar (Desktop) */}
         <div className="hidden md:flex flex-1 max-w-2xl mx-4 lg:mx-8">
           <SearchBar />
         </div>
 
-        {/* Right Section: Desktop Navigation & Mobile Search Toggle */}
         <div className="flex items-center space-x-2 md:space-x-4">
-          {/* Mobile Search Toggle */}
           <button
             onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
             className="md:hidden p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
@@ -128,9 +133,7 @@ const Navbar = () => {
             <Search className="w-5 h-5" />
           </button>
 
-          {/* Desktop Navigation - Hidden on mobile */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Home */}
             <Link
               to="/"
               className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
@@ -143,7 +146,6 @@ const Navbar = () => {
               <span className="text-xs mt-1">Home</span>
             </Link>
 
-            {/* Friends */}
             <Link
               to="/friends"
               className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
@@ -156,7 +158,6 @@ const Navbar = () => {
               <span className="text-xs mt-1">Friends</span>
             </Link>
 
-            {/* Teams Dropdown (UPDATED) */}
             <div className="relative">
               <button
                 onClick={() => setTeamsDropdown(!teamsDropdown)}
@@ -166,7 +167,7 @@ const Navbar = () => {
                     : 'hover:bg-gray-700/50 hover:text-gray-200'
                 }`}
               >
-                <Briefcase className="w-5 h-5" /> {/* 👈 Changed to Briefcase */}
+                <Briefcase className="w-5 h-5" />
                 <span className="font-medium">Teams</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${teamsDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -193,7 +194,7 @@ const Navbar = () => {
                         className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                       >
                         <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3">
-                          <Search className="w-4 h-4 text-blue-400" /> {/* 👈 Search Icon for Finding */}
+                          <Search className="w-4 h-4 text-blue-400" />
                         </div>
                         <div>
                           <p className="text-sm font-medium">Find Teams</p>
@@ -205,10 +206,10 @@ const Navbar = () => {
                         className="flex items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                       >
                         <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
-                          <Briefcase className="w-4 h-4 text-purple-400" /> {/* 👈 Briefcase for Dashboard */}
+                          <Briefcase className="w-4 h-4 text-purple-400" /> 
                         </div>
                         <div>
-                          <p className="text-sm font-medium">My Dashboard</p> {/* 👈 Renamed for clarity */}
+                          <p className="text-sm font-medium">My Dashboard</p> 
                           <p className="text-xs text-gray-400">Your active teams</p>
                         </div>
                       </Link>
@@ -223,7 +224,6 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Messaging */}
             <Link
               to="/chat"
               className={`flex flex-col items-center p-2 rounded-lg transition-all duration-200 ${
@@ -236,7 +236,6 @@ const Navbar = () => {
               <span className="text-xs mt-1">Messages</span>
             </Link>
 
-            {/* Notifications */}
             {ENABLE_NOTIFICATIONS && (
               <div className="relative">
                 <Link
@@ -258,13 +257,14 @@ const Navbar = () => {
               </div>
             )}
 
-            {/* User Dropdown */}
+            {/* 🟢 User Dropdown */}
             <div className="relative ml-2">
               <button
                 onClick={() => setUserDropdown(!userDropdown)}
                 className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
               >
-                {currentUser.profile_pic_url ? (
+                {/* SMART INITIALS LOGIC HERE */}
+                {hasValidProfilePic(currentUser.profile_pic_url) ? (
                   <img
                     src={currentUser.profile_pic_url}
                     alt={currentUser.full_name}
@@ -272,7 +272,7 @@ const Navbar = () => {
                   />
                 ) : (
                   <div className="w-7 h-7 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                    {currentUser.full_name?.[0]?.toUpperCase() || "S"}
+                    {getInitials(currentUser.full_name)}
                   </div>
                 )}
                 <span className="text-xs mt-1 text-gray-300 max-w-[62px] truncate">
@@ -287,15 +287,16 @@ const Navbar = () => {
                 >
                   <div className="p-4 border-b border-gray-700">
                     <div className="flex items-center space-x-3">
-                      {currentUser.profile_pic_url ? (
+                      {/* SMART INITIALS LOGIC HERE */}
+                      {hasValidProfilePic(currentUser.profile_pic_url) ? (
                         <img 
                           src={currentUser.profile_pic_url} 
                           alt={currentUser.full_name} 
                           className="w-10 h-10 rounded-full object-cover border-2 border-blue-500/30"
                         />
                       ) : (
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                          {currentUser.full_name?.[0]?.toUpperCase() || 'U'}
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                          {getInitials(currentUser.full_name)}
                         </div>
                       )}
                       <div>
@@ -359,26 +360,24 @@ const Navbar = () => {
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <>
-          {/* Backdrop */}
           <div 
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
           
-          {/* Mobile Menu Panel */}
           <div className="fixed top-16 left-0 right-0 bottom-0 bg-gray-900 z-50 md:hidden overflow-y-auto animate-slideIn">
             <div className="p-4">
-              {/* User Info */}
               <div className="flex items-center space-x-3 p-4 bg-gray-800/50 rounded-xl mb-6">
-                {currentUser.profile_pic_url ? (
+                {/* SMART INITIALS LOGIC HERE */}
+                {hasValidProfilePic(currentUser.profile_pic_url) ? (
                   <img
                     src={currentUser.profile_pic_url}
                     alt={currentUser.full_name}
                     className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/30"
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {currentUser.full_name?.[0]?.toUpperCase() || "S"}
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                    {getInitials(currentUser.full_name)}
                   </div>
                 )}
                 <div>
@@ -387,7 +386,6 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {/* Navigation Links */}
               <div className="space-y-1 mb-6">
                 <MobileNavItem
                   to="/"
@@ -397,7 +395,6 @@ const Navbar = () => {
                   onClick={() => setMobileMenuOpen(false)}
                 />
                 
-                {/* Community Help Link */}
                 <MobileNavItem
                   to="/help/feed"
                   icon={<Zap className="w-5 h-5" />}
@@ -414,13 +411,12 @@ const Navbar = () => {
                   onClick={() => setMobileMenuOpen(false)}
                 />
 
-                {/* 🆕 UPDATED: Mobile Teams Section */}
                 <div className="space-y-1 pt-2 pb-2 border-t border-gray-800 mt-2">
                   <p className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Teams</p>
                   
                   <MobileNavItem
                     to="/teams"
-                    icon={<Search className="w-4 h-4" />} // 👈 Search icon for finding teams
+                    icon={<Search className="w-4 h-4" />} 
                     label="Find Teams"
                     isActive={isActive('/teams')}
                     onClick={() => setMobileMenuOpen(false)}
@@ -429,7 +425,7 @@ const Navbar = () => {
                   
                   <MobileNavItem
                     to="/teams/my"
-                    icon={<Briefcase className="w-4 h-4" />} // 👈 Briefcase for My Dashboard
+                    icon={<Briefcase className="w-4 h-4" />} 
                     label="My Dashboard"
                     isActive={isActive('/teams/my')}
                     onClick={() => setMobileMenuOpen(false)}
@@ -467,7 +463,6 @@ const Navbar = () => {
                 )}
               </div>
 
-              {/* User Menu Links */}
               <div className="space-y-1 mb-6">
                 <MobileNavItem
                   to={`/profile/${currentUser.id}`}
@@ -483,7 +478,6 @@ const Navbar = () => {
                 />
               </div>
 
-              {/* Sign Out Button */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -499,7 +493,6 @@ const Navbar = () => {
         </>
       )}
 
-      {/* Quick Team Creation Floating Button - Hidden on mobile */}
       <Link
         to="/teams/create"
         className="hidden md:flex fixed bottom-6 right-6 z-40 animate-bounce-slow"
@@ -515,7 +508,6 @@ const Navbar = () => {
   );
 };
 
-// Mobile Navigation Item Component (Updated with Explicit Text Color)
 const MobileNavItem = ({ to, icon, label, isActive, onClick, badge, indent, accent }) => (
   <Link
     to={to}
@@ -544,76 +536,30 @@ const MobileNavItem = ({ to, icon, label, isActive, onClick, badge, indent, acce
 
 const styles = `
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
-
 @keyframes slideDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
-
 @keyframes bounce-slow {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
-
-.animate-fadeIn {
-  animation: fadeIn 0.2s ease-out;
-}
-
-.animate-slideIn {
-  animation: slideIn 0.3s ease-out;
-}
-
-.animate-slideDown {
-  animation: slideDown 0.2s ease-out;
-}
-
-.animate-bounce-slow {
-  animation: bounce-slow 2s infinite;
-}
-
-.hover\:shadow-3xl:hover {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-
-/* Mobile Responsive Adjustments */
+.animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+.animate-slideIn { animation: slideIn 0.3s ease-out; }
+.animate-slideDown { animation: slideDown 0.2s ease-out; }
+.animate-bounce-slow { animation: bounce-slow 2s infinite; }
+.hover\\:shadow-3xl:hover { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
 @media (max-width: 768px) {
   .mobile-search-overlay {
-    position: fixed;
-    top: 64px;
-    left: 0;
-    right: 0;
-    background: #1f2937;
-    padding: 1rem;
-    border-bottom: 1px solid #374151;
-    z-index: 40;
+    position: fixed; top: 64px; left: 0; right: 0;
+    background: #1f2937; padding: 1rem; border-bottom: 1px solid #374151; z-index: 40;
   }
 }
 `;

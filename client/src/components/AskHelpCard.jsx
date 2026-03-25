@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { HelpCircle, Upload, Github, X, FileText, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { helpService } from "../services/helpService";
 
-const AskHelpCard = ({ user, onRefresh }) => {
+// 🟢 FIXED: Added `isOwner` to the destructured props
+const AskHelpCard = ({ user, isOwner, onRefresh }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -20,7 +21,6 @@ const AskHelpCard = ({ user, onRefresh }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 🛑 VALIDATION: Image is now REQUIRED
     if (!form.image) {
       alert("Please upload a screenshot of the error.");
       return;
@@ -31,7 +31,6 @@ const AskHelpCard = ({ user, onRefresh }) => {
     const formData = new FormData();
     formData.append("title", form.title);
     formData.append("description", form.description);
-    // Send empty string if no link provided
     formData.append("github_link", form.github_link || ""); 
     formData.append("tags", form.tags);
     formData.append("image", form.image);
@@ -49,7 +48,7 @@ const AskHelpCard = ({ user, onRefresh }) => {
   };
 
   // ---------------------------------------------------------
-  // 🟢 STATE 1: ACTIVE PROBLEM CARD (With Image)
+  // 🟢 STATE 1: ACTIVE PROBLEM CARD (Shows for everyone if it exists)
   // ---------------------------------------------------------
   if (activeRequest) {
     return (
@@ -69,7 +68,7 @@ const AskHelpCard = ({ user, onRefresh }) => {
             </span>
         </div>
 
-        {/* 🆕 SHOW IMAGE HERE */}
+        {/* SHOW IMAGE HERE */}
         {activeRequest.image_url ? (
            <div className="mb-4 rounded-xl overflow-hidden h-32 bg-gray-100 border border-gray-100 relative group-hover:border-indigo-200 transition-colors">
              <img 
@@ -79,7 +78,6 @@ const AskHelpCard = ({ user, onRefresh }) => {
              />
            </div>
         ) : (
-           // Fallback if somehow no image exists (legacy data)
            <div className="mb-4 h-24 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-200">
              <span className="text-xs text-gray-400">No Image Preview</span>
            </div>
@@ -103,7 +101,15 @@ const AskHelpCard = ({ user, onRefresh }) => {
   }
 
   // ---------------------------------------------------------
-  // 🔵 STATE 2: FORM (Updated Requirements)
+  // 🛑 STATE 2: SECURITY CHECK
+  // If there is no active request AND this is someone else's profile, hide the card entirely!
+  // ---------------------------------------------------------
+  if (!isOwner) {
+    return null;
+  }
+
+  // ---------------------------------------------------------
+  // 🔵 STATE 3: FORM (Shows only if it's your own profile)
   // ---------------------------------------------------------
   return (
     <>
@@ -133,37 +139,37 @@ const AskHelpCard = ({ user, onRefresh }) => {
 
       {/* Modal Form */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl no-scrollbar">
             <div className="p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
               <div>
                   <h2 className="text-xl font-bold text-gray-900">Post a Request</h2>
                   <p className="text-xs text-gray-500">Screenshots help us solve it faster</p>
               </div>
-              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X className="w-5 h-5 text-gray-500" />
+              <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               
-              {/* 1. SCREENSHOT (Now Required & First) */}
+              {/* 1. SCREENSHOT */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                     Screenshot <span className="text-red-500">*</span>
                 </label>
                 <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer relative group ${form.image ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:bg-gray-50 hover:border-indigo-300'}`}>
                   <input
                     type="file"
                     accept="image/*"
-                    required // HTML Validation
+                    required 
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
                   />
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${form.image ? 'bg-green-100' : 'bg-gray-100 group-hover:bg-indigo-100'}`}>
                     {form.image ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Upload className="w-5 h-5 text-gray-400 group-hover:text-indigo-600" />}
                   </div>
-                  <span className={`text-sm font-medium ${form.image ? 'text-green-700' : 'text-gray-600 group-hover:text-indigo-700'}`}>
+                  <span className={`text-sm font-bold ${form.image ? 'text-green-700' : 'text-gray-600 group-hover:text-indigo-700'}`}>
                     {form.image ? form.image.name : "Click to upload error screenshot"}
                   </span>
                 </div>
@@ -171,11 +177,11 @@ const AskHelpCard = ({ user, onRefresh }) => {
 
               {/* 2. TITLE */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Problem Title <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Problem Title <span className="text-red-500">*</span></label>
                 <input
                   required
                   placeholder="e.g. Infinite loop in React useEffect"
-                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                  className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                 />
@@ -183,7 +189,7 @@ const AskHelpCard = ({ user, onRefresh }) => {
 
               {/* 3. TECH STACK */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Tech Stack <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Tech Stack <span className="text-red-500">*</span></label>
                 <input
                   required
                   placeholder="e.g. React, JavaScript, API"
@@ -193,10 +199,10 @@ const AskHelpCard = ({ user, onRefresh }) => {
                 />
               </div>
 
-              {/* 4. GITHUB (Optional) */}
+              {/* 4. GITHUB */}
               <div>
-                <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-sm font-bold text-gray-700">GitHub Link</label>
+                <div className="flex justify-between items-center mb-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">GitHub Link</label>
                     <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Optional</span>
                 </div>
                 <div className="relative">
@@ -213,7 +219,7 @@ const AskHelpCard = ({ user, onRefresh }) => {
 
               {/* 5. DESCRIPTION */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Description <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Description <span className="text-red-500">*</span></label>
                 <textarea
                   required
                   rows="3"

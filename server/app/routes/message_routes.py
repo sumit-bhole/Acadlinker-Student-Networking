@@ -5,7 +5,8 @@ from app.middleware.auth_middleware import token_required
 from app.controllers.message_controller import (
     get_friends,
     get_chat_history,
-    send_message
+    send_message,
+    delete_message # 🟢 IMPORTED THE NEW FUNCTION
 )
 
 # 2. Changed prefix from '/messages' to '/api/messages' for consistency
@@ -31,3 +32,10 @@ def chat_history(user_id):
 @token_required
 def send_msg(user_id):
     return send_message(user_id)
+
+
+# 🟢 NEW: Route to handle unsending/deleting messages
+@messages_bp.route("/<string:message_id>", methods=["DELETE"])
+@token_required
+def delete_msg(message_id):
+    return delete_message(message_id)

@@ -14,12 +14,19 @@ def serialize_message(msg: Message):
     # Your auth middleware stores the ID in 'g', not in flask_login.
     current_user_id = getattr(g, 'user_id', None)
 
+    # 🟢 TIMEZONE FIX: Append 'Z' so React knows this is UTC time!
+    timestamp_str = None
+    if msg.timestamp:
+        timestamp_str = msg.timestamp.isoformat()
+        if not timestamp_str.endswith('Z') and '+' not in timestamp_str:
+            timestamp_str += 'Z'
+
     return {
         "id": msg.id,
         "sender_id": msg.sender_id,
         "receiver_id": msg.receiver_id,
         "content": msg.content,
-        "timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
+        "timestamp": timestamp_str, # 👈 Updated to use the timezone-aware string
         "file_url": file_url,
         
         # This now correctly compares the message sender with the logged-in user
