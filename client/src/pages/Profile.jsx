@@ -21,7 +21,6 @@ const Profile = () => {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("posts");
   const [processingAction, setProcessingAction] = useState(false);
 
   // 🟢 MODAL STATES
@@ -406,49 +405,54 @@ const Profile = () => {
           </div>
 
           {/* =======================
-              RIGHT CONTENT (Posts)
+              RIGHT CONTENT (Feed & Posts)
              ======================= */}
-          <div className="flex-1 w-full md:w-auto h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar py-8 pl-2 lg:pl-4">
+          <div className="flex-1 w-full md:w-auto h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar py-8 px-4 lg:px-8 max-w-4xl mx-auto">
+             
+             {/* 1. Ask Help Card */}
              <div className="mb-8">
                 <AskHelpCard user={user} isOwner={isCurrentUser} onRefresh={fetchUserData} />
              </div>
             
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {isCurrentUser ? "Your Posts" : `${user.full_name}'s Posts`}
+             {/* 2. Sleek Feed Header */}
+             <div className="mb-6 border-b border-slate-200 pb-4">
+              <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                {isCurrentUser ? "Your Activity" : `Activity`}
               </h2>
-              <p className="text-gray-500">
+              <p className="text-sm font-medium text-slate-500 mt-1">
                 {isCurrentUser 
-                  ? "Share your thoughts, ideas, and updates with your friends."
+                  ? "Share your thoughts, ideas, and updates with your network."
                   : `See what ${user.full_name} has been sharing lately.`
                 }
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-              <div className="border-b border-gray-200 overflow-x-auto">
-                <div className="flex min-w-max">
-                  {['posts', 'activity', 'friends', 'photos'].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`px-6 py-4 font-medium text-sm uppercase tracking-wider transition-all duration-300 ${
-                        activeTab === tab
-                          ? 'text-indigo-600 border-b-2 border-indigo-500'
-                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
+            {/* 3. Posts Component (No Wrappers, No Tabs) */}
+            <div className="mb-10 space-y-6">
+              <UserPosts userId={userId} isCurrentUser={isCurrentUser} />
+            </div>
+            
+            {/* 4. Recent Interactions (Styled to match the new sleek UI) */}
+            {user.recent_interactions && user.recent_interactions.length > 0 && (
+              <div className="mt-8 border-t border-slate-200 pt-8">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Recent Interactions</h3>
+                <div className="space-y-3">
+                  {user.recent_interactions.map((interaction, index) => (
+                    <div key={index} className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 cursor-pointer">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm">
+                        {interaction.initials}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900 text-sm">{interaction.name}</p>
+                        <p className="text-xs text-slate-500 font-medium">{interaction.action}</p>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400">{interaction.time}</span>
+                    </div>
                   ))}
                 </div>
               </div>
+            )}
 
-              <div className="p-4 md:p-6">
-                <UserPosts userId={userId} isCurrentUser={isCurrentUser} />
-              </div>
-            </div>
-            
           </div>
         </div>
       </div>

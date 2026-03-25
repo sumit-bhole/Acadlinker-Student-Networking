@@ -27,19 +27,23 @@ def _serialize_post(post):
     if post.user:
         user_data = {
             "id": post.user.id,
-            # 🛠️ FIX 1: Send 'full_name' (matches Frontend)
             "full_name": post.user.full_name,  
-            # 🛠️ FIX 2: Send 'profile_pic_url' (matches Frontend)
             "profile_pic_url": getattr(post.user, "profile_pic", None) 
         }
+
+    # 🟢 TIMEZONE FIX: Append 'Z' so the frontend knows this is UTC time!
+    timestamp_str = None
+    if post.timestamp:
+        timestamp_str = post.timestamp.isoformat()
+        if not timestamp_str.endswith('Z') and '+' not in timestamp_str:
+            timestamp_str += 'Z'
 
     return {
         "id": post.id,
         "title": post.title,
         "description": post.description,
         "file_url": image_url,
-        # 🛠️ FIX 3: Send 'created_at' instead of 'date_posted'
-        "created_at": post.timestamp.isoformat() if post.timestamp else None,
+        "created_at": timestamp_str, # 👈 Using fixed timezone string
         "user": user_data
     }
 
@@ -105,14 +109,11 @@ def get_current_user_posts():
     return jsonify([_serialize_post(post) for post in posts]), 200
 
 def get_home_feed_posts():
-    # 1. Fetch current user to get their friends list
     current_user = User.query.get(g.user_id)
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Get list of friend IDs
     friend_ids = [friend.id for friend in current_user.friends]
-    # Add self so you see your own posts too
     friend_ids.append(current_user.id)
 
     posts = (
@@ -123,3 +124,19 @@ def get_home_feed_posts():
     )
 
     return jsonify([_serialize_post(post) for post in posts]), 200
+
+# 🟢 NEW: Delete Post Controller
+def delete_post(post_id):
+    post = Post.query.get(post_id)
+    
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+        
+    # Security: Ensure the user deleting the post actually owns it
+    if post.user_id != g.user_id:
+        return jsonify({"error": "Unauthorized to delete this post"}), 403
+
+    db.session.delete(post)
+    db.session.commit()
+
+    return jsonify({"message": "Post deleted successfully"}), 200

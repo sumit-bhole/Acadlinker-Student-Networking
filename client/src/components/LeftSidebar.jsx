@@ -37,11 +37,20 @@ const LeftSidebar = () => {
   }, []);
 
   const userName = profile?.full_name || currentUser?.user_metadata?.full_name || "Welcome!";
-  const userPic = profile?.profile_pic_url || currentUser?.user_metadata?.avatar_url || "/default-profile.png";
+  
+  // 🟢 CHANGED: Removed the automatic fallback to "/default-profile.png" so we can check if it exists
+  const userPic = profile?.profile_pic_url || currentUser?.user_metadata?.avatar_url;
+  
   const rpPoints = profile?.rp || profile?.rp_points || profile?.reputation_points || 0;
   const friendCount = profile?.friend_count || 0;
   const postCount = profile?.post_count || 0;
   const location = profile?.location || "Pune, India";
+
+  // 🟢 NEW: Helper function to get initials
+  const getInitials = (name) => {
+    if (!name || name === "Welcome!") return "?";
+    return name.charAt(0).toUpperCase();
+  };
 
   if (loading) {
     return (
@@ -68,11 +77,20 @@ const LeftSidebar = () => {
           <div className="flex flex-col items-start mt-4">
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-tr from-indigo-200 to-purple-200 rounded-3xl blur opacity-60 group-hover:opacity-80 transition-opacity"></div>
-              <img 
-                src={userPic} 
-                alt={userName} 
-                className="relative w-32 h-32 rounded-3xl object-cover border-4 border-white shadow-md"
-              />
+              
+              {/* 🟢 CHANGED: Conditional render for Image vs Initials */}
+              <div className="relative w-32 h-32 rounded-3xl border-4 border-white shadow-md overflow-hidden bg-indigo-50 flex items-center justify-center">
+                {userPic && userPic !== "/default-profile.png" ? (
+                  <img 
+                    src={userPic} 
+                    alt={userName} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-6xl font-black text-indigo-400">{getInitials(userName)}</span>
+                )}
+              </div>
+
             </div>
 
             <div className="mt-6">
