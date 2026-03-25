@@ -4,6 +4,8 @@ import UserPosts from "../components/UserPosts";
 import { useParams, Link } from "react-router-dom";
 import AskHelpCard from "../components/AskHelpCard";
 import api from "../api/axios";
+// 🟢 NEW: Import the Creatable Select component
+import CreatableSelect from 'react-select/creatable';
 import {
   FaCheck,
   FaPlus,
@@ -15,6 +17,75 @@ import {
 import { FiClock } from "react-icons/fi";
 import { MapPin, Mail, Phone, Link as LinkIcon, GraduationCap, Calendar, X } from "lucide-react";
 
+// 🟢 EXPANDED: Top 100 Tech & Business Skills
+const SKILL_OPTIONS = [
+  // Languages
+  { value: 'JavaScript', label: 'JavaScript' }, { value: 'Python', label: 'Python' }, { value: 'Java', label: 'Java' }, { value: 'C++', label: 'C++' }, { value: 'C#', label: 'C#' }, { value: 'TypeScript', label: 'TypeScript' }, { value: 'Go', label: 'Go' }, { value: 'Rust', label: 'Rust' }, { value: 'Swift', label: 'Swift' }, { value: 'Kotlin', label: 'Kotlin' }, { value: 'PHP', label: 'PHP' }, { value: 'Ruby', label: 'Ruby' }, { value: 'HTML/CSS', label: 'HTML/CSS' },
+  // Frontend
+  { value: 'React.js', label: 'React.js' }, { value: 'Angular', label: 'Angular' }, { value: 'Vue.js', label: 'Vue.js' }, { value: 'Next.js', label: 'Next.js' }, { value: 'Tailwind CSS', label: 'Tailwind CSS' }, { value: 'Redux', label: 'Redux' }, { value: 'Bootstrap', label: 'Bootstrap' },
+  // Backend & DB
+  { value: 'Node.js', label: 'Node.js' }, { value: 'Express.js', label: 'Express.js' }, { value: 'Django', label: 'Django' }, { value: 'Flask', label: 'Flask' }, { value: 'Spring Boot', label: 'Spring Boot' }, { value: 'SQL', label: 'SQL' }, { value: 'MySQL', label: 'MySQL' }, { value: 'PostgreSQL', label: 'PostgreSQL' }, { value: 'MongoDB', label: 'MongoDB' }, { value: 'Redis', label: 'Redis' }, { value: 'Firebase', label: 'Firebase' },
+  // Cloud & DevOps
+  { value: 'AWS', label: 'AWS' }, { value: 'Microsoft Azure', label: 'Microsoft Azure' }, { value: 'Google Cloud (GCP)', label: 'Google Cloud (GCP)' }, { value: 'Docker', label: 'Docker' }, { value: 'Kubernetes', label: 'Kubernetes' }, { value: 'Jenkins', label: 'Jenkins' }, { value: 'Git/GitHub', label: 'Git/GitHub' }, { value: 'Linux', label: 'Linux' }, { value: 'CI/CD', label: 'CI/CD' },
+  // AI, ML & Data
+  { value: 'Machine Learning', label: 'Machine Learning' }, { value: 'Artificial Intelligence', label: 'Artificial Intelligence' }, { value: 'Data Science', label: 'Data Science' }, { value: 'Pandas', label: 'Pandas' }, { value: 'NumPy', label: 'NumPy' }, { value: 'TensorFlow', label: 'TensorFlow' }, { value: 'PyTorch', label: 'PyTorch' }, { value: 'NLP', label: 'NLP' }, { value: 'Computer Vision', label: 'Computer Vision' }, { value: 'Data Analysis', label: 'Data Analysis' }, { value: 'Power BI', label: 'Power BI' }, { value: 'Tableau', label: 'Tableau' },
+  // Mobile, Design & Other
+  { value: 'React Native', label: 'React Native' }, { value: 'Flutter', label: 'Flutter' }, { value: 'Android Development', label: 'Android Development' }, { value: 'iOS Development', label: 'iOS Development' }, { value: 'UI/UX Design', label: 'UI/UX Design' }, { value: 'Figma', label: 'Figma' }, { value: 'Adobe XD', label: 'Adobe XD' }, { value: 'Cyber Security', label: 'Cyber Security' }, { value: 'Blockchain', label: 'Blockchain' }, { value: 'Web3', label: 'Web3' }, { value: 'Internet of Things (IoT)', label: 'Internet of Things (IoT)' }, { value: 'Robotics', label: 'Robotics' }, { value: 'Agile/Scrum', label: 'Agile/Scrum' }, { value: 'Project Management', label: 'Project Management' }
+];
+
+// 🟢 EXPANDED: Top 100+ Cities in India (Tier 1, 2 & major Tier 3) + Remote
+const LOCATION_OPTIONS = [
+  { value: 'Remote', label: 'Remote' },
+  // Tier 1
+  { value: 'Mumbai, Maharashtra', label: 'Mumbai, Maharashtra' }, { value: 'Delhi, NCR', label: 'Delhi, NCR' }, { value: 'Bangalore, Karnataka', label: 'Bangalore, Karnataka' }, { value: 'Hyderabad, Telangana', label: 'Hyderabad, Telangana' }, { value: 'Chennai, Tamil Nadu', label: 'Chennai, Tamil Nadu' }, { value: 'Kolkata, West Bengal', label: 'Kolkata, West Bengal' }, { value: 'Pune, Maharashtra', label: 'Pune, Maharashtra' }, { value: 'Ahmedabad, Gujarat', label: 'Ahmedabad, Gujarat' },
+  // Major Tech/Student Hubs & Tier 2
+  { value: 'Gurgaon, Haryana', label: 'Gurgaon, Haryana' }, { value: 'Noida, Uttar Pradesh', label: 'Noida, Uttar Pradesh' }, { value: 'Jaipur, Rajasthan', label: 'Jaipur, Rajasthan' }, { value: 'Surat, Gujarat', label: 'Surat, Gujarat' }, { value: 'Lucknow, Uttar Pradesh', label: 'Lucknow, Uttar Pradesh' }, { value: 'Kanpur, Uttar Pradesh', label: 'Kanpur, Uttar Pradesh' }, { value: 'Nagpur, Maharashtra', label: 'Nagpur, Maharashtra' }, { value: 'Indore, Madhya Pradesh', label: 'Indore, Madhya Pradesh' }, { value: 'Thane, Maharashtra', label: 'Thane, Maharashtra' }, { value: 'Bhopal, Madhya Pradesh', label: 'Bhopal, Madhya Pradesh' }, { value: 'Visakhapatnam, Andhra Pradesh', label: 'Visakhapatnam, Andhra Pradesh' }, { value: 'Patna, Bihar', label: 'Patna, Bihar' }, { value: 'Vadodara, Gujarat', label: 'Vadodara, Gujarat' }, { value: 'Ghaziabad, Uttar Pradesh', label: 'Ghaziabad, Uttar Pradesh' }, { value: 'Ludhiana, Punjab', label: 'Ludhiana, Punjab' }, { value: 'Agra, Uttar Pradesh', label: 'Agra, Uttar Pradesh' }, { value: 'Nashik, Maharashtra', label: 'Nashik, Maharashtra' }, { value: 'Faridabad, Haryana', label: 'Faridabad, Haryana' }, { value: 'Meerut, Uttar Pradesh', label: 'Meerut, Uttar Pradesh' }, { value: 'Rajkot, Gujarat', label: 'Rajkot, Gujarat' }, { value: 'Varanasi, Uttar Pradesh', label: 'Varanasi, Uttar Pradesh' }, { value: 'Srinagar, J&K', label: 'Srinagar, J&K' }, { value: 'Aurangabad, Maharashtra', label: 'Aurangabad, Maharashtra' }, { value: 'Dhanbad, Jharkhand', label: 'Dhanbad, Jharkhand' }, { value: 'Amritsar, Punjab', label: 'Amritsar, Punjab' }, { value: 'Allahabad, Uttar Pradesh', label: 'Allahabad, Uttar Pradesh' }, { value: 'Ranchi, Jharkhand', label: 'Ranchi, Jharkhand' }, { value: 'Gwalior, Madhya Pradesh', label: 'Gwalior, Madhya Pradesh' }, { value: 'Coimbatore, Tamil Nadu', label: 'Coimbatore, Tamil Nadu' }, { value: 'Vijayawada, Andhra Pradesh', label: 'Vijayawada, Andhra Pradesh' }, { value: 'Jodhpur, Rajasthan', label: 'Jodhpur, Rajasthan' }, { value: 'Madurai, Tamil Nadu', label: 'Madurai, Tamil Nadu' }, { value: 'Raipur, Chhattisgarh', label: 'Raipur, Chhattisgarh' }, { value: 'Kota, Rajasthan', label: 'Kota, Rajasthan' }, { value: 'Guwahati, Assam', label: 'Guwahati, Assam' }, { value: 'Chandigarh', label: 'Chandigarh' }, { value: 'Mysore, Karnataka', label: 'Mysore, Karnataka' }, { value: 'Bhubaneswar, Odisha', label: 'Bhubaneswar, Odisha' }, { value: 'Thiruvananthapuram, Kerala', label: 'Thiruvananthapuram, Kerala' }, { value: 'Kochi, Kerala', label: 'Kochi, Kerala' }, { value: 'Dehradun, Uttarakhand', label: 'Dehradun, Uttarakhand' }, { value: 'Jamshedpur, Jharkhand', label: 'Jamshedpur, Jharkhand' }
+];
+
+// 🟢 EXPANDED: Major Universities & Institutes in India
+const EDUCATION_OPTIONS = [
+  // IITs
+  { value: 'IIT Bombay', label: 'IIT Bombay' }, { value: 'IIT Delhi', label: 'IIT Delhi' }, { value: 'IIT Kanpur', label: 'IIT Kanpur' }, { value: 'IIT Madras', label: 'IIT Madras' }, { value: 'IIT Kharagpur', label: 'IIT Kharagpur' }, { value: 'IIT Roorkee', label: 'IIT Roorkee' }, { value: 'IIT Guwahati', label: 'IIT Guwahati' }, { value: 'IIT Hyderabad', label: 'IIT Hyderabad' },
+  // NITs & IIITs
+  { value: 'NIT Trichy', label: 'NIT Trichy' }, { value: 'NIT Surathkal', label: 'NIT Surathkal' }, { value: 'NIT Warangal', label: 'NIT Warangal' }, { value: 'NIT Calicut', label: 'NIT Calicut' }, { value: 'NIT Rourkela', label: 'NIT Rourkela' }, { value: 'IIIT Hyderabad', label: 'IIIT Hyderabad' }, { value: 'IIIT Bangalore', label: 'IIIT Bangalore' }, { value: 'IIIT Allahabad', label: 'IIIT Allahabad' },
+  // Major Private & State Universities
+  { value: 'BITS Pilani', label: 'BITS Pilani' }, { value: 'VIT Vellore', label: 'VIT Vellore' }, { value: 'SRM Institute of Science and Technology', label: 'SRM Institute of Science and Technology' }, { value: 'Manipal Institute of Technology (MIT)', label: 'Manipal Institute of Technology (MIT)' }, { value: 'Thapar Institute of Engineering and Technology', label: 'Thapar Institute of Engineering and Technology' }, { value: 'Amity University', label: 'Amity University' }, { value: 'KIIT, Bhubaneswar', label: 'KIIT, Bhubaneswar' }, { value: 'Delhi University (DU)', label: 'Delhi University (DU)' }, { value: 'Mumbai University', label: 'Mumbai University' }, { value: 'Pune University (SPPU)', label: 'Pune University (SPPU)' }, { value: 'S.B. Patil College of Engineering, Pune', label: 'S.B. Patil College of Engineering, Pune' }, { value: 'Calcutta University', label: 'Calcutta University' }, { value: 'Jadavpur University', label: 'Jadavpur University' }, { value: 'Anna University', label: 'Anna University' }, { value: 'Osmania University', label: 'Osmania University' }, { value: 'IISc Bangalore', label: 'IISc Bangalore' }, { value: 'IISER Pune', label: 'IISER Pune' },
+  // General
+  { value: 'Self-Taught', label: 'Self-Taught' }, { value: 'Bootcamp Graduate', label: 'Bootcamp Graduate' }
+];
+
+// 🟢 NEW: Custom styles to make react-select match your Tailwind theme perfectly
+const customSelectStyles = {
+  control: (provided, state) => ({
+    ...provided,
+    borderRadius: '0.75rem',
+    padding: '0.2rem 0.3rem',
+    borderColor: state.isFocused ? '#6366f1' : '#e2e8f0',
+    boxShadow: state.isFocused ? '0 0 0 1px #6366f1' : 'none',
+    '&:hover': { borderColor: '#6366f1' }
+  }),
+  multiValue: (provided) => ({
+    ...provided,
+    backgroundColor: '#eef2ff',
+    borderRadius: '0.375rem',
+  }),
+  multiValueLabel: (provided) => ({
+    ...provided,
+    color: '#4338ca',
+    fontWeight: 'bold',
+    fontSize: '0.75rem',
+  }),
+  multiValueRemove: (provided) => ({
+    ...provided,
+    color: '#6366f1',
+    ':hover': {
+      backgroundColor: '#e0e7ff',
+      color: '#3730a3',
+    },
+  }),
+  menuPortal: base => ({ ...base, zIndex: 9999 })
+};
+
 const Profile = () => {
   const { currentUser, refreshUser } = useAuth();
   const { userId } = useParams();
@@ -23,7 +94,6 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState(false);
 
-  // 🟢 MODAL STATES
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false);
@@ -31,12 +101,10 @@ const Profile = () => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isEditingContact, setIsEditingContact] = useState(false);
   
-  // 🟢 AVATAR PREVIEW STATES
   const [tempAvatarFile, setTempAvatarFile] = useState(null);
   const [tempAvatarPreview, setTempAvatarPreview] = useState(null);
   const [isAvatarRemoved, setIsAvatarRemoved] = useState(false);
 
-  // 🟢 EDIT FORM STATE
   const [editForm, setEditForm] = useState({});
 
   const isCurrentUser = currentUser && String(currentUser.id) === String(userId);
@@ -134,7 +202,6 @@ const Profile = () => {
     }
   };
 
-  // 🟢 AVATAR FLOW
   const handleAvatarFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -260,7 +327,6 @@ const Profile = () => {
             
             <div className="flex flex-col min-h-full pb-0 pt-10">
               
-              {/* Avatar & Action Button Row */}
               <div className="flex justify-between items-start px-5 mb-5 shrink-0">
                 <div className="relative">
                   <div 
@@ -295,7 +361,6 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Header Info, About & Location */}
               <div className="px-5 shrink-0 relative group">
                 {isCurrentUser && (
                   <button 
@@ -332,7 +397,6 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Stats Strip */}
               <div className="grid grid-cols-3 border-y border-slate-100 py-5 mx-5 mt-6 mb-6 shrink-0 divide-x divide-slate-100">
                 <div className="text-center group">
                   <p className="text-2xl font-black text-slate-800 group-hover:text-amber-500 transition-colors">{user.rp || user.rp_points || user.reputation_points || "0"}</p>
@@ -348,7 +412,6 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Skills */}
               <div className="px-5 mb-6 shrink-0 relative group">
                 {isCurrentUser && (
                   <button 
@@ -369,7 +432,6 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Details (Education & Website) */}
               <div className="px-5 space-y-4 shrink-0 relative group pb-4">
                 {isCurrentUser && (
                   <button 
@@ -409,12 +471,10 @@ const Profile = () => {
              ======================= */}
           <div className="flex-1 w-full md:w-auto h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar py-8 px-4 lg:px-8 max-w-4xl mx-auto">
              
-             {/* 1. Ask Help Card */}
              <div className="mb-8">
                 <AskHelpCard user={user} isOwner={isCurrentUser} onRefresh={fetchUserData} />
              </div>
             
-             {/* 2. Sleek Feed Header */}
              <div className="mb-6 border-b border-slate-200 pb-4">
               <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
                 {isCurrentUser ? "Your Activity" : `Activity`}
@@ -427,12 +487,10 @@ const Profile = () => {
               </p>
             </div>
 
-            {/* 3. Posts Component (No Wrappers, No Tabs) */}
             <div className="mb-10 space-y-6">
               <UserPosts userId={userId} isCurrentUser={isCurrentUser} />
             </div>
             
-            {/* 4. Recent Interactions (Styled to match the new sleek UI) */}
             {user.recent_interactions && user.recent_interactions.length > 0 && (
               <div className="mt-8 border-t border-slate-200 pt-8">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Recent Interactions</h3>
@@ -494,7 +552,7 @@ const Profile = () => {
         </div>
       )}
 
-      {/* 2. Basic Info Modal */}
+      {/* 2. Basic Info Modal (Location updated to CreatableSelect) */}
       {isBasicInfoModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -502,7 +560,7 @@ const Profile = () => {
               <h3 className="font-bold text-slate-800">Edit Basic Info</h3>
               <button onClick={() => setIsBasicInfoModalOpen(false)} className="text-slate-400 hover:text-slate-700"><X size={20}/></button>
             </div>
-            <form onSubmit={submitProfileUpdate} className="p-6 space-y-4">
+            <form onSubmit={submitProfileUpdate} className="p-6 space-y-4 overflow-visible">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Full Name</label>
                 <input type="text" name="full_name" value={editForm.full_name} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" required />
@@ -511,10 +569,23 @@ const Profile = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">About</label>
                 <textarea name="description" value={editForm.description} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-3 h-28 resize-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="Write a short bio..." />
               </div>
+              
+              {/* 🟢 NEW: Location Creatable Select */}
+              {/* 🟢 NEW: Location Creatable Select */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Location</label>
-                <input type="text" name="location" value={editForm.location} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="e.g. Pune, India" />
+                <CreatableSelect
+                  options={LOCATION_OPTIONS}
+                  styles={customSelectStyles}
+                  placeholder="Select or type your location..."
+                  value={editForm.location ? { label: editForm.location, value: editForm.location } : null}
+                  onChange={(selected) => setEditForm({ ...editForm, location: selected ? selected.value : '' })}
+                  isClearable
+                  menuPortalTarget={document.body} /* 🟢 ADDED THIS LINE */
+                  menuPosition="fixed" /* 🟢 ADDED THIS LINE */
+                />
               </div>
+              
               <button type="submit" disabled={processingAction} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
                 {processingAction ? "Saving..." : "Save Changes"}
               </button>
@@ -523,19 +594,29 @@ const Profile = () => {
         </div>
       )}
 
-      {/* 3. Skills Modal */}
+      {/* 3. Skills Modal (Skills updated to multi CreatableSelect) */}
       {isSkillsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-visible animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-5 border-b border-slate-100">
               <h3 className="font-bold text-slate-800">Edit Skills</h3>
               <button onClick={() => setIsSkillsModalOpen(false)} className="text-slate-400 hover:text-slate-700"><X size={20}/></button>
             </div>
-            <form onSubmit={submitProfileUpdate} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Skills (comma separated)</label>
-                <input type="text" name="skills" value={editForm.skills} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="React, Python, Design..." />
+            <form onSubmit={submitProfileUpdate} className="p-6 space-y-4 overflow-visible">
+              
+              {/* 🟢 NEW: Skills Creatable Select */}
+              <div className="mb-24"> {/* Extra margin for dropdown popup */}
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Skills</label>
+                <CreatableSelect
+                  isMulti
+                  options={SKILL_OPTIONS}
+                  styles={customSelectStyles}
+                  placeholder="Select or type to add skills..."
+                  value={editForm.skills ? editForm.skills.split(',').filter(Boolean).map(s => ({ label: s.trim(), value: s.trim() })) : []}
+                  onChange={(selected) => setEditForm({ ...editForm, skills: selected ? selected.map(s => s.value).join(', ') : '' })}
+                />
               </div>
+              
               <button type="submit" disabled={processingAction} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
                 {processingAction ? "Saving..." : "Save Changes"}
               </button>
@@ -544,19 +625,29 @@ const Profile = () => {
         </div>
       )}
 
-      {/* 4. Details Modal */}
+      {/* 4. Details Modal (Education updated to CreatableSelect) */}
       {isDetailsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-visible animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-5 border-b border-slate-100">
               <h3 className="font-bold text-slate-800">Edit Details</h3>
               <button onClick={() => setIsDetailsModalOpen(false)} className="text-slate-400 hover:text-slate-700"><X size={20}/></button>
             </div>
-            <form onSubmit={submitProfileUpdate} className="p-6 space-y-4">
+            <form onSubmit={submitProfileUpdate} className="p-6 space-y-4 overflow-visible">
+              
+              {/* 🟢 NEW: Education Creatable Select */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Education</label>
-                <input type="text" name="education" value={editForm.education} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="S.B. Patil College of Engineering" />
+                <CreatableSelect
+                  options={EDUCATION_OPTIONS}
+                  styles={customSelectStyles}
+                  placeholder="Select or type your institution..."
+                  value={editForm.education ? { label: editForm.education, value: editForm.education } : null}
+                  onChange={(selected) => setEditForm({ ...editForm, education: selected ? selected.value : '' })}
+                  isClearable
+                />
               </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Website URL</label>
                 <input type="url" name="website" value={editForm.website} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="https://yourwebsite.com" />
