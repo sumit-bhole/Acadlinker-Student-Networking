@@ -30,6 +30,14 @@ def _serialize_user(target_user, current_user_id):
     """
     Serialize User object with privacy & friendship logic
     """
+    
+    # 🟢 SAFE COUNTING: 
+    # Because friends is lazy='dynamic', we MUST use .count()
+    friend_count = target_user.friends.count()
+    
+    # Because posts isn't a direct relationship in the User model, we query the Post table directly
+    post_count = Post.query.filter_by(user_id=target_user.id).count()
+
     user_data = {
         "id": target_user.id,
         "full_name": target_user.full_name,
@@ -43,14 +51,15 @@ def _serialize_user(target_user, current_user_id):
         "cover_photo_url": target_user.cover_photo,
         "created_at": target_user.created_at.isoformat(),
         "role": getattr(target_user, 'role', 'User'),
-        "reputation_points": getattr(target_user, 'reputation_points', 0)
+        "reputation_points": getattr(target_user, 'reputation_points', 0),  
+        "friend_count": friend_count,
+        "post_count": post_count
     }
 
-    # 🟢 NEW: Check for Active Help Request & Send FULL Details
+    # Check for Active Help Request & Send FULL Details
     active_req = HelpRequest.query.filter_by(user_id=target_user.id, status='open').first()
     
     if active_req:
-        # 🛠️ FIX: Resolve Image URL correctly (Cloudinary vs Local)
         req_image_url = None
         if active_req.image_url:
             if active_req.image_url.startswith("http"):
@@ -64,7 +73,7 @@ def _serialize_user(target_user, current_user_id):
             "description": active_req.description,
             "github_link": active_req.github_link,
             "tags": active_req.tags,
-            "image_url": req_image_url, # 👈 Now correctly populated
+            "image_url": req_image_url, 
             "created_at": active_req.created_at.isoformat()
         }
     else:
@@ -195,6 +204,11 @@ def update_user_profile():
     data = request.form
 
     # 3. EXPLICIT UPDATE LOGIC
+
+    # Handle removing the DP from the frontend
+    if request.form.get("remove_profile_pic") == "true":
+        current_user.profile_pic = None
+
     if "full_name" in data:
         current_user.full_name = data["full_name"]
     
