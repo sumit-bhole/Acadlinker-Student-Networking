@@ -1,6 +1,18 @@
 import React from "react";
 import { MessageSquare, Search } from "lucide-react";
 
+// 🟢 NEW: Add our smart helpers at the top of the file
+const hasValidProfilePic = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  if (url.includes("default")) return false;
+  return true;
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  return name.charAt(0).toUpperCase();
+};
+
 const Sidebar = ({ friends, loadingFriends, currentFriend, onFriendSelect, onRefreshChat }) => {
   return (
     <div className="w-full lg:w-80 xl:w-96 flex flex-col bg-white border-r border-slate-200">
@@ -49,27 +61,41 @@ const Sidebar = ({ friends, loadingFriends, currentFriend, onFriendSelect, onRef
   );
 };
 
-const FriendListItem = ({ friend, isActive, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`flex items-center px-4 lg:px-5 py-3 lg:py-4 cursor-pointer transition-all border-l-4 ${
-      isActive 
-        ? "bg-indigo-50 border-indigo-600 shadow-sm" 
-        : "border-transparent hover:bg-slate-50"
-    }`}
-  >
-    <img 
-      src={friend.profile_pic_url || friend.profile_image || "/default-profile.png"} 
-      className="w-10 h-10 lg:w-12 lg:h-12 rounded-full object-cover shadow-sm" 
-      alt="profile" 
-    />
-    <div className="ml-3 lg:ml-4 overflow-hidden flex-1 min-w-0">
-      <h3 className="font-semibold text-slate-900 truncate text-sm lg:text-base">
-        {friend.name || friend.full_name}
-      </h3>
-      <p className="text-xs text-slate-500 truncate">{friend.email}</p>
+// 🟢 CHANGED: Updated the list item to handle the initials fallback
+const FriendListItem = ({ friend, isActive, onClick }) => {
+  const userPic = friend.profile_pic_url || friend.profile_image;
+  const userName = friend.name || friend.full_name || "Unknown User";
+
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center px-4 lg:px-5 py-3 lg:py-4 cursor-pointer transition-all border-l-4 ${
+        isActive 
+          ? "bg-indigo-50 border-indigo-600 shadow-sm" 
+          : "border-transparent hover:bg-slate-50"
+      }`}
+    >
+      {/* 🟢 SMART INITIALS CHECK */}
+      {hasValidProfilePic(userPic) ? (
+        <img 
+          src={userPic} 
+          className="w-10 h-10 lg:w-12 lg:h-12 rounded-full object-cover shadow-sm border border-slate-100 shrink-0" 
+          alt={userName} 
+        />
+      ) : (
+        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 border border-indigo-50 shadow-sm">
+          <span className="text-lg font-black text-indigo-500">{getInitials(userName)}</span>
+        </div>
+      )}
+      
+      <div className="ml-3 lg:ml-4 overflow-hidden flex-1 min-w-0">
+        <h3 className="font-semibold text-slate-900 truncate text-sm lg:text-base">
+          {userName}
+        </h3>
+        <p className="text-xs text-slate-500 truncate">{friend.email}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default Sidebar;

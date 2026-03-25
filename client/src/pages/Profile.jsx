@@ -1,60 +1,43 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import UserPosts from "../components/UserPosts";
+import ProfileSidebar from "../components/ProfileSidebar"; // 🟢 IMPORTED
 import { useParams, Link } from "react-router-dom";
 import AskHelpCard from "../components/AskHelpCard";
 import api from "../api/axios";
-// 🟢 NEW: Import the Creatable Select component
 import CreatableSelect from 'react-select/creatable';
 import {
   FaCheck,
   FaPlus,
   FaComment,
-  FaEdit,
-  FaCamera,
   FaTrash
 } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
-import { MapPin, Mail, Phone, Link as LinkIcon, GraduationCap, Calendar, X } from "lucide-react";
+import { Mail, Phone, MapPin, X } from "lucide-react";
 
-// 🟢 EXPANDED: Top 100 Tech & Business Skills
+// --- OPTIONS & STYLES ---
 const SKILL_OPTIONS = [
-  // Languages
   { value: 'JavaScript', label: 'JavaScript' }, { value: 'Python', label: 'Python' }, { value: 'Java', label: 'Java' }, { value: 'C++', label: 'C++' }, { value: 'C#', label: 'C#' }, { value: 'TypeScript', label: 'TypeScript' }, { value: 'Go', label: 'Go' }, { value: 'Rust', label: 'Rust' }, { value: 'Swift', label: 'Swift' }, { value: 'Kotlin', label: 'Kotlin' }, { value: 'PHP', label: 'PHP' }, { value: 'Ruby', label: 'Ruby' }, { value: 'HTML/CSS', label: 'HTML/CSS' },
-  // Frontend
   { value: 'React.js', label: 'React.js' }, { value: 'Angular', label: 'Angular' }, { value: 'Vue.js', label: 'Vue.js' }, { value: 'Next.js', label: 'Next.js' }, { value: 'Tailwind CSS', label: 'Tailwind CSS' }, { value: 'Redux', label: 'Redux' }, { value: 'Bootstrap', label: 'Bootstrap' },
-  // Backend & DB
   { value: 'Node.js', label: 'Node.js' }, { value: 'Express.js', label: 'Express.js' }, { value: 'Django', label: 'Django' }, { value: 'Flask', label: 'Flask' }, { value: 'Spring Boot', label: 'Spring Boot' }, { value: 'SQL', label: 'SQL' }, { value: 'MySQL', label: 'MySQL' }, { value: 'PostgreSQL', label: 'PostgreSQL' }, { value: 'MongoDB', label: 'MongoDB' }, { value: 'Redis', label: 'Redis' }, { value: 'Firebase', label: 'Firebase' },
-  // Cloud & DevOps
   { value: 'AWS', label: 'AWS' }, { value: 'Microsoft Azure', label: 'Microsoft Azure' }, { value: 'Google Cloud (GCP)', label: 'Google Cloud (GCP)' }, { value: 'Docker', label: 'Docker' }, { value: 'Kubernetes', label: 'Kubernetes' }, { value: 'Jenkins', label: 'Jenkins' }, { value: 'Git/GitHub', label: 'Git/GitHub' }, { value: 'Linux', label: 'Linux' }, { value: 'CI/CD', label: 'CI/CD' },
-  // AI, ML & Data
   { value: 'Machine Learning', label: 'Machine Learning' }, { value: 'Artificial Intelligence', label: 'Artificial Intelligence' }, { value: 'Data Science', label: 'Data Science' }, { value: 'Pandas', label: 'Pandas' }, { value: 'NumPy', label: 'NumPy' }, { value: 'TensorFlow', label: 'TensorFlow' }, { value: 'PyTorch', label: 'PyTorch' }, { value: 'NLP', label: 'NLP' }, { value: 'Computer Vision', label: 'Computer Vision' }, { value: 'Data Analysis', label: 'Data Analysis' }, { value: 'Power BI', label: 'Power BI' }, { value: 'Tableau', label: 'Tableau' },
-  // Mobile, Design & Other
   { value: 'React Native', label: 'React Native' }, { value: 'Flutter', label: 'Flutter' }, { value: 'Android Development', label: 'Android Development' }, { value: 'iOS Development', label: 'iOS Development' }, { value: 'UI/UX Design', label: 'UI/UX Design' }, { value: 'Figma', label: 'Figma' }, { value: 'Adobe XD', label: 'Adobe XD' }, { value: 'Cyber Security', label: 'Cyber Security' }, { value: 'Blockchain', label: 'Blockchain' }, { value: 'Web3', label: 'Web3' }, { value: 'Internet of Things (IoT)', label: 'Internet of Things (IoT)' }, { value: 'Robotics', label: 'Robotics' }, { value: 'Agile/Scrum', label: 'Agile/Scrum' }, { value: 'Project Management', label: 'Project Management' }
 ];
 
-// 🟢 EXPANDED: Top 100+ Cities in India (Tier 1, 2 & major Tier 3) + Remote
 const LOCATION_OPTIONS = [
   { value: 'Remote', label: 'Remote' },
-  // Tier 1
   { value: 'Mumbai, Maharashtra', label: 'Mumbai, Maharashtra' }, { value: 'Delhi, NCR', label: 'Delhi, NCR' }, { value: 'Bangalore, Karnataka', label: 'Bangalore, Karnataka' }, { value: 'Hyderabad, Telangana', label: 'Hyderabad, Telangana' }, { value: 'Chennai, Tamil Nadu', label: 'Chennai, Tamil Nadu' }, { value: 'Kolkata, West Bengal', label: 'Kolkata, West Bengal' }, { value: 'Pune, Maharashtra', label: 'Pune, Maharashtra' }, { value: 'Ahmedabad, Gujarat', label: 'Ahmedabad, Gujarat' },
-  // Major Tech/Student Hubs & Tier 2
   { value: 'Gurgaon, Haryana', label: 'Gurgaon, Haryana' }, { value: 'Noida, Uttar Pradesh', label: 'Noida, Uttar Pradesh' }, { value: 'Jaipur, Rajasthan', label: 'Jaipur, Rajasthan' }, { value: 'Surat, Gujarat', label: 'Surat, Gujarat' }, { value: 'Lucknow, Uttar Pradesh', label: 'Lucknow, Uttar Pradesh' }, { value: 'Kanpur, Uttar Pradesh', label: 'Kanpur, Uttar Pradesh' }, { value: 'Nagpur, Maharashtra', label: 'Nagpur, Maharashtra' }, { value: 'Indore, Madhya Pradesh', label: 'Indore, Madhya Pradesh' }, { value: 'Thane, Maharashtra', label: 'Thane, Maharashtra' }, { value: 'Bhopal, Madhya Pradesh', label: 'Bhopal, Madhya Pradesh' }, { value: 'Visakhapatnam, Andhra Pradesh', label: 'Visakhapatnam, Andhra Pradesh' }, { value: 'Patna, Bihar', label: 'Patna, Bihar' }, { value: 'Vadodara, Gujarat', label: 'Vadodara, Gujarat' }, { value: 'Ghaziabad, Uttar Pradesh', label: 'Ghaziabad, Uttar Pradesh' }, { value: 'Ludhiana, Punjab', label: 'Ludhiana, Punjab' }, { value: 'Agra, Uttar Pradesh', label: 'Agra, Uttar Pradesh' }, { value: 'Nashik, Maharashtra', label: 'Nashik, Maharashtra' }, { value: 'Faridabad, Haryana', label: 'Faridabad, Haryana' }, { value: 'Meerut, Uttar Pradesh', label: 'Meerut, Uttar Pradesh' }, { value: 'Rajkot, Gujarat', label: 'Rajkot, Gujarat' }, { value: 'Varanasi, Uttar Pradesh', label: 'Varanasi, Uttar Pradesh' }, { value: 'Srinagar, J&K', label: 'Srinagar, J&K' }, { value: 'Aurangabad, Maharashtra', label: 'Aurangabad, Maharashtra' }, { value: 'Dhanbad, Jharkhand', label: 'Dhanbad, Jharkhand' }, { value: 'Amritsar, Punjab', label: 'Amritsar, Punjab' }, { value: 'Allahabad, Uttar Pradesh', label: 'Allahabad, Uttar Pradesh' }, { value: 'Ranchi, Jharkhand', label: 'Ranchi, Jharkhand' }, { value: 'Gwalior, Madhya Pradesh', label: 'Gwalior, Madhya Pradesh' }, { value: 'Coimbatore, Tamil Nadu', label: 'Coimbatore, Tamil Nadu' }, { value: 'Vijayawada, Andhra Pradesh', label: 'Vijayawada, Andhra Pradesh' }, { value: 'Jodhpur, Rajasthan', label: 'Jodhpur, Rajasthan' }, { value: 'Madurai, Tamil Nadu', label: 'Madurai, Tamil Nadu' }, { value: 'Raipur, Chhattisgarh', label: 'Raipur, Chhattisgarh' }, { value: 'Kota, Rajasthan', label: 'Kota, Rajasthan' }, { value: 'Guwahati, Assam', label: 'Guwahati, Assam' }, { value: 'Chandigarh', label: 'Chandigarh' }, { value: 'Mysore, Karnataka', label: 'Mysore, Karnataka' }, { value: 'Bhubaneswar, Odisha', label: 'Bhubaneswar, Odisha' }, { value: 'Thiruvananthapuram, Kerala', label: 'Thiruvananthapuram, Kerala' }, { value: 'Kochi, Kerala', label: 'Kochi, Kerala' }, { value: 'Dehradun, Uttarakhand', label: 'Dehradun, Uttarakhand' }, { value: 'Jamshedpur, Jharkhand', label: 'Jamshedpur, Jharkhand' }
 ];
 
-// 🟢 EXPANDED: Major Universities & Institutes in India
 const EDUCATION_OPTIONS = [
-  // IITs
   { value: 'IIT Bombay', label: 'IIT Bombay' }, { value: 'IIT Delhi', label: 'IIT Delhi' }, { value: 'IIT Kanpur', label: 'IIT Kanpur' }, { value: 'IIT Madras', label: 'IIT Madras' }, { value: 'IIT Kharagpur', label: 'IIT Kharagpur' }, { value: 'IIT Roorkee', label: 'IIT Roorkee' }, { value: 'IIT Guwahati', label: 'IIT Guwahati' }, { value: 'IIT Hyderabad', label: 'IIT Hyderabad' },
-  // NITs & IIITs
   { value: 'NIT Trichy', label: 'NIT Trichy' }, { value: 'NIT Surathkal', label: 'NIT Surathkal' }, { value: 'NIT Warangal', label: 'NIT Warangal' }, { value: 'NIT Calicut', label: 'NIT Calicut' }, { value: 'NIT Rourkela', label: 'NIT Rourkela' }, { value: 'IIIT Hyderabad', label: 'IIIT Hyderabad' }, { value: 'IIIT Bangalore', label: 'IIIT Bangalore' }, { value: 'IIIT Allahabad', label: 'IIIT Allahabad' },
-  // Major Private & State Universities
   { value: 'BITS Pilani', label: 'BITS Pilani' }, { value: 'VIT Vellore', label: 'VIT Vellore' }, { value: 'SRM Institute of Science and Technology', label: 'SRM Institute of Science and Technology' }, { value: 'Manipal Institute of Technology (MIT)', label: 'Manipal Institute of Technology (MIT)' }, { value: 'Thapar Institute of Engineering and Technology', label: 'Thapar Institute of Engineering and Technology' }, { value: 'Amity University', label: 'Amity University' }, { value: 'KIIT, Bhubaneswar', label: 'KIIT, Bhubaneswar' }, { value: 'Delhi University (DU)', label: 'Delhi University (DU)' }, { value: 'Mumbai University', label: 'Mumbai University' }, { value: 'Pune University (SPPU)', label: 'Pune University (SPPU)' }, { value: 'S.B. Patil College of Engineering, Pune', label: 'S.B. Patil College of Engineering, Pune' }, { value: 'Calcutta University', label: 'Calcutta University' }, { value: 'Jadavpur University', label: 'Jadavpur University' }, { value: 'Anna University', label: 'Anna University' }, { value: 'Osmania University', label: 'Osmania University' }, { value: 'IISc Bangalore', label: 'IISc Bangalore' }, { value: 'IISER Pune', label: 'IISER Pune' },
-  // General
   { value: 'Self-Taught', label: 'Self-Taught' }, { value: 'Bootcamp Graduate', label: 'Bootcamp Graduate' }
 ];
 
-// 🟢 NEW: Custom styles to make react-select match your Tailwind theme perfectly
 const customSelectStyles = {
   control: (provided, state) => ({
     ...provided,
@@ -289,9 +272,25 @@ const Profile = () => {
     );
   };
 
+  // 🟢 SMART LOGIC FOR INITIALS
+  const hasValidProfilePic = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    if (url.includes("default")) return false;
+    return true;
+  };
+
   const getInitials = (name) => {
     if (!name) return "?";
     return name.charAt(0).toUpperCase();
+  };
+
+  const handleOpenAvatarModal = () => {
+    if (isCurrentUser) {
+      setTempAvatarFile(null);
+      setTempAvatarPreview(user.profile_pic_url);
+      setIsAvatarRemoved(false);
+      setIsAvatarModalOpen(true);
+    }
   };
 
   if (loading) {
@@ -321,150 +320,20 @@ const Profile = () => {
         <div className="flex flex-col md:flex-row gap-4 lg:gap-8 h-auto md:h-full items-start">
           
           {/* =======================
-              LEFT SIDEBAR 
+              🟢 MODULAR LEFT SIDEBAR 
              ======================= */}
-          <div className="w-full md:w-[450px] lg:w-[500px] flex-shrink-0 h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar bg-white border-r border-slate-200 shadow-sm">
-            
-            <div className="flex flex-col min-h-full pb-0 pt-10">
-              
-              <div className="flex justify-between items-start px-5 mb-5 shrink-0">
-                <div className="relative">
-                  <div 
-                    onClick={() => {
-                      if (isCurrentUser) {
-                        setTempAvatarFile(null);
-                        setTempAvatarPreview(user.profile_pic_url);
-                        setIsAvatarRemoved(false);
-                        setIsAvatarModalOpen(true);
-                      }
-                    }}
-                    className={`w-28 h-28 rounded-2xl border-[3px] border-slate-100 shadow-sm overflow-hidden bg-indigo-50 flex items-center justify-center ${isCurrentUser ? 'cursor-pointer group' : ''}`}
-                  >
-                    {user.profile_pic_url ? (
-                      <img src={user.profile_pic_url} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-5xl font-black text-indigo-400">{getInitials(user.full_name)}</span>
-                    )}
-                    {isCurrentUser && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <FaCamera className="text-white text-2xl" />
-                      </div>
-                    )}
-                  </div>
-                  {user.is_online && (
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-[3px] border-white rounded-full"></div>
-                  )}
-                </div>
-                
-                <div className="pt-2">
-                  {renderFriendButton()}
-                </div>
-              </div>
-
-              <div className="px-5 shrink-0 relative group">
-                {isCurrentUser && (
-                  <button 
-                    onClick={() => setIsBasicInfoModalOpen(true)}
-                    className="absolute top-0 right-5 p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    <FaEdit />
-                  </button>
-                )}
-
-                <div className="flex items-center gap-1.5 pr-8">
-                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{user.full_name}</h1>
-                  {user.is_verified && <FaCheck className="text-blue-500 text-sm" title="Verified" />}
-                </div>
-                
-                {user.description && (
-                  <p className="text-slate-700 text-sm mt-3 mb-3 leading-relaxed font-medium pr-2">
-                    {user.description}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2 mt-2 text-sm font-medium">
-                  <p className="text-slate-500 flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4" />
-                    {user.location || "Remote"}
-                  </p>
-                  <span className="text-slate-300">•</span>
-                  <button 
-                    onClick={() => setIsContactModalOpen(true)} 
-                    className="text-indigo-600 hover:underline font-bold"
-                  >
-                    Contact info
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 border-y border-slate-100 py-5 mx-5 mt-6 mb-6 shrink-0 divide-x divide-slate-100">
-                <div className="text-center group">
-                  <p className="text-2xl font-black text-slate-800 group-hover:text-amber-500 transition-colors">{user.rp || user.rp_points || user.reputation_points || "0"}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">RP Points</p>
-                </div>
-                <div className="text-center group">
-                  <p className="text-2xl font-black text-slate-800 group-hover:text-blue-500 transition-colors">{user.friend_count || "0"}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Friends</p>
-                </div>
-                <div className="text-center group">
-                  <p className="text-2xl font-black text-slate-800 group-hover:text-purple-500 transition-colors">{user.post_count || "0"}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Posts</p>
-                </div>
-              </div>
-
-              <div className="px-5 mb-6 shrink-0 relative group">
-                {isCurrentUser && (
-                  <button 
-                    onClick={() => setIsSkillsModalOpen(true)}
-                    className="absolute -top-2 right-5 p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-10"
-                  >
-                    <FaEdit />
-                  </button>
-                )}
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Skills</h3>
-                <div className="flex flex-wrap gap-1.5 pr-8">
-                  {user.skills ? user.skills.split(",").slice(0, 6).map((skill, i) => (
-                    <span key={i} className="px-3 py-1 rounded-md border border-indigo-100 bg-indigo-50 text-indigo-700 text-xs font-bold">{skill.trim()}</span>
-                  )) : <span className="text-sm text-slate-400 italic">No skills added</span>}
-                  {user.skills && user.skills.split(",").length > 6 && (
-                    <span className="px-2 py-1 text-slate-400 text-xs font-bold">+{user.skills.split(",").length - 6}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="px-5 space-y-4 shrink-0 relative group pb-4">
-                {isCurrentUser && (
-                  <button 
-                    onClick={() => setIsDetailsModalOpen(true)}
-                    className="absolute -top-2 right-5 p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-10"
-                  >
-                    <FaEdit />
-                  </button>
-                )}
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Details</h3>
-                
-                <div className="flex items-center gap-3">
-                  <GraduationCap className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-sm font-medium text-slate-700 truncate pr-8">{user.education || "Not specified"}</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-sm font-medium text-slate-700">Joined {new Date(user.created_at).toLocaleDateString('default', { month: 'short', year: 'numeric' })}</span>
-                </div>
-
-                {user.website && (
-                  <div className="flex items-center gap-3">
-                    <LinkIcon className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <a href={user.website} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-600 hover:underline truncate block pr-8">
-                      {user.website}
-                    </a>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </div>
+          <ProfileSidebar 
+            user={user}
+            isCurrentUser={isCurrentUser}
+            getInitials={getInitials}
+            hasValidProfilePic={hasValidProfilePic}
+            renderFriendButton={renderFriendButton}
+            openAvatarModal={handleOpenAvatarModal}
+            openBasicInfoModal={() => setIsBasicInfoModalOpen(true)}
+            openContactModal={() => setIsContactModalOpen(true)}
+            openSkillsModal={() => setIsSkillsModalOpen(true)}
+            openDetailsModal={() => setIsDetailsModalOpen(true)}
+          />
 
           {/* =======================
               RIGHT CONTENT (Feed & Posts)
@@ -529,7 +398,8 @@ const Profile = () => {
             </div>
             <div className="p-8 flex flex-col items-center">
               <div className="w-48 h-48 rounded-3xl border-4 border-slate-100 shadow-inner overflow-hidden mb-8 bg-indigo-50 flex items-center justify-center">
-                {tempAvatarPreview ? (
+                {/* 🟢 SMART INITIALS CHECK */}
+                {hasValidProfilePic(tempAvatarPreview) ? (
                   <img src={tempAvatarPreview} alt="DP" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-7xl font-black text-indigo-300">{getInitials(user.full_name)}</span>
@@ -552,7 +422,7 @@ const Profile = () => {
         </div>
       )}
 
-      {/* 2. Basic Info Modal (Location updated to CreatableSelect) */}
+      {/* 2. Basic Info Modal */}
       {isBasicInfoModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -570,8 +440,6 @@ const Profile = () => {
                 <textarea name="description" value={editForm.description} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-3 h-28 resize-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="Write a short bio..." />
               </div>
               
-              {/* 🟢 NEW: Location Creatable Select */}
-              {/* 🟢 NEW: Location Creatable Select */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Location</label>
                 <CreatableSelect
@@ -581,8 +449,8 @@ const Profile = () => {
                   value={editForm.location ? { label: editForm.location, value: editForm.location } : null}
                   onChange={(selected) => setEditForm({ ...editForm, location: selected ? selected.value : '' })}
                   isClearable
-                  menuPortalTarget={document.body} /* 🟢 ADDED THIS LINE */
-                  menuPosition="fixed" /* 🟢 ADDED THIS LINE */
+                  menuPortalTarget={document.body}
+                  menuPosition="fixed" 
                 />
               </div>
               
@@ -594,7 +462,7 @@ const Profile = () => {
         </div>
       )}
 
-      {/* 3. Skills Modal (Skills updated to multi CreatableSelect) */}
+      {/* 3. Skills Modal */}
       {isSkillsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-visible animate-in zoom-in-95 duration-200">
@@ -604,8 +472,7 @@ const Profile = () => {
             </div>
             <form onSubmit={submitProfileUpdate} className="p-6 space-y-4 overflow-visible">
               
-              {/* 🟢 NEW: Skills Creatable Select */}
-              <div className="mb-24"> {/* Extra margin for dropdown popup */}
+              <div className="mb-24"> 
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Skills</label>
                 <CreatableSelect
                   isMulti
@@ -614,6 +481,8 @@ const Profile = () => {
                   placeholder="Select or type to add skills..."
                   value={editForm.skills ? editForm.skills.split(',').filter(Boolean).map(s => ({ label: s.trim(), value: s.trim() })) : []}
                   onChange={(selected) => setEditForm({ ...editForm, skills: selected ? selected.map(s => s.value).join(', ') : '' })}
+                  menuPortalTarget={document.body}
+                  menuPosition="fixed"
                 />
               </div>
               
@@ -625,7 +494,7 @@ const Profile = () => {
         </div>
       )}
 
-      {/* 4. Details Modal (Education updated to CreatableSelect) */}
+      {/* 4. Details Modal */}
       {isDetailsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-visible animate-in zoom-in-95 duration-200">
@@ -635,7 +504,6 @@ const Profile = () => {
             </div>
             <form onSubmit={submitProfileUpdate} className="p-6 space-y-4 overflow-visible">
               
-              {/* 🟢 NEW: Education Creatable Select */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Education</label>
                 <CreatableSelect
@@ -645,6 +513,8 @@ const Profile = () => {
                   value={editForm.education ? { label: editForm.education, value: editForm.education } : null}
                   onChange={(selected) => setEditForm({ ...editForm, education: selected ? selected.value : '' })}
                   isClearable
+                  menuPortalTarget={document.body}
+                  menuPosition="fixed"
                 />
               </div>
 
