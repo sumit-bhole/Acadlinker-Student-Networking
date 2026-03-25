@@ -5,9 +5,7 @@ import {
   Users, 
   FileText, 
   Trophy, 
-  Briefcase,
-  MapPin,
-  Sparkles
+  MapPin
 } from "lucide-react";
 import AuthService from "../api/auth";
 import api from "../api/axios";
@@ -40,7 +38,6 @@ const LeftSidebar = () => {
 
   const userName = profile?.full_name || currentUser?.user_metadata?.full_name || "Welcome!";
   const userPic = profile?.profile_pic_url || currentUser?.user_metadata?.avatar_url || "/default-profile.png";
-  const userRole = profile?.role || "Software Developer";
   const rpPoints = profile?.rp || profile?.rp_points || profile?.reputation_points || 0;
   const friendCount = profile?.friend_count || 0;
   const postCount = profile?.post_count || 0;
@@ -49,7 +46,6 @@ const LeftSidebar = () => {
   if (loading) {
     return (
       <div className="hidden lg:block lg:col-span-3 h-full">
-        {/* Adjusted skeleton to match the slate-50 background */}
         <div className="sticky top-16 bg-slate-50 h-[calc(100vh-4rem)] animate-pulse border-r border-slate-200"></div>
       </div>
     );
@@ -58,9 +54,6 @@ const LeftSidebar = () => {
   return (
     <div className="hidden lg:block lg:col-span-3 h-full">
       
-      {/* 🟢 CHANGED: 
-          1. bg-white -> bg-slate-50 (Matches middle section perfectly) 
-          2. overflow-y-auto -> overflow-hidden (Locks it completely) */}
       <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-hidden relative bg-slate-50 border-r border-slate-200">
         
         {/* Decorative Background Glows */}
@@ -80,9 +73,6 @@ const LeftSidebar = () => {
                 alt={userName} 
                 className="relative w-32 h-32 rounded-3xl object-cover border-4 border-white shadow-md"
               />
-              <div className="absolute -bottom-2 -right-2 bg-white border border-slate-100 p-2 rounded-xl text-amber-500 shadow-sm">
-                <Sparkles size={16} />
-              </div>
             </div>
 
             <div className="mt-6">
@@ -91,10 +81,6 @@ const LeftSidebar = () => {
                   {userName}
                 </h2>
               </Link>
-              <div className="flex items-center gap-2 mt-2 text-indigo-600 font-bold">
-                <Briefcase size={14} />
-                <span>{userRole}</span>
-              </div>
               <div className="flex items-center gap-2 mt-1.5 text-slate-500 text-sm font-medium">
                 <MapPin size={14} />
                 <span>{location}</span>
