@@ -10,7 +10,8 @@ import {
   FaCheck,
   FaPlus,
   FaComment,
-  FaTrash
+  FaTrash,
+  FaEdit
 } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
 import { Mail, Phone, MapPin, X } from "lucide-react";
@@ -307,7 +308,7 @@ const Profile = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen md:h-screen bg-slate-50 pt-0 pb-0 px-0 pr-4 lg:pr-6 overflow-y-auto md:overflow-hidden relative">
+    <div className="min-h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] bg-slate-50 pt-0 pb-0 px-0 pr-4 lg:pr-6 overflow-y-auto md:overflow-hidden relative">
       
       <style>
         {`

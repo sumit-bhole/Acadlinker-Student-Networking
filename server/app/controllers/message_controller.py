@@ -28,7 +28,7 @@ def get_friends():
 
 
 # -----------------------------------
-# Get Chat History
+# Get Chat History (🟢 UPDATED FOR PAGINATION)
 # -----------------------------------
 def get_chat_history(user_id):
     current_user = User.query.get(g.user_id)
@@ -41,10 +41,23 @@ def get_chat_history(user_id):
     if not current_user.friends.filter_by(id=friend.id).first():
         return jsonify({"error": "You can only chat with your friends."}), 403
 
-    messages = Message.query.filter(
+    # 1. Get pagination parameters from the URL (default: page 1, 20 messages)
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 20, type=int)
+
+    # 2. Query the database for ONLY this chunk of messages
+    # We order by descending (newest first) to get the most recent messages for this page
+    pagination = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == friend.id)) |
         ((Message.sender_id == friend.id) & (Message.receiver_id == current_user.id))
-    ).order_by(Message.timestamp.asc()).all()
+    ).order_by(Message.timestamp.desc()).paginate(page=page, per_page=limit, error_out=False)
+
+    messages = pagination.items
+
+    # 3. REVERSE the chunk! 
+    # Because we pulled the newest first, they are backwards for the UI. 
+    # Reversing them puts the oldest at the top and newest at the bottom.
+    messages.reverse()
 
     return jsonify({
         "friend": {
@@ -52,7 +65,8 @@ def get_chat_history(user_id):
             "username": friend.full_name,
             "profile_pic_url": getattr(friend, "profile_pic", None)
         },
-        "messages": [serialize_message(msg) for msg in messages]
+        "messages": [serialize_message(msg) for msg in messages],
+        "has_more": pagination.has_next # Tells the frontend if more older messages exist
     }), 200
 
 
@@ -103,3 +117,24 @@ def send_message(user_id):
     db.session.commit()
 
     return jsonify(serialize_message(message)), 201
+
+# -----------------------------------
+# Delete / Unsend Message
+# -----------------------------------
+def delete_message(message_id):
+    current_user_id = getattr(g, 'user_id', None)
+    
+    # Find the message
+    message = Message.query.get(message_id)
+    
+    if not message:
+        return jsonify({"error": "Message not found"}), 404
+        
+    # Security Check: Only the sender can delete their own message
+    if message.sender_id != current_user_id:
+        return jsonify({"error": "Unauthorized to delete this message"}), 403
+        
+    db.session.delete(message)
+    db.session.commit()
+    
+    return jsonify({"success": "Message unsent successfully"}), 200

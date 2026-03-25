@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/axios";
 import { Link } from "react-router-dom";
-import { Image, Send, Paperclip, Clock, X, Trash2, Edit3 } from "lucide-react";
+import { Image, Send, Paperclip, Clock, X, Trash2, Edit3, AlertCircle } from "lucide-react"; // 🟢 ADDED AlertCircle
 
 // --- HELPERS ---
 const getImageUrl = (url) => {
@@ -35,8 +35,12 @@ const UserPosts = ({ userId, isCurrentUser }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🟢 NEW: Modal State for Create Post
+  // Modal States
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  
+  // 🟢 NEW: Delete Confirmation States
+  const [postToDelete, setPostToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -99,15 +103,23 @@ const UserPosts = ({ userId, isCurrentUser }) => {
     }
   };
 
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
-    
+  // 🟢 NEW: Updated Delete Logic
+  const initiateDelete = (postId) => {
+    setPostToDelete(postId); // Opens the confirmation modal
+  };
+
+  const confirmDelete = async () => {
+    if (!postToDelete) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/api/posts/${postId}`);
-      setPosts((prev) => prev.filter(p => p.id !== postId));
+      await api.delete(`/api/posts/${postToDelete}`);
+      setPosts((prev) => prev.filter(p => p.id !== postToDelete));
+      setPostToDelete(null); // Close modal on success
     } catch (err) {
       console.error("Failed to delete post:", err);
       alert("Failed to delete post. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -160,7 +172,7 @@ const UserPosts = ({ userId, isCurrentUser }) => {
   return (
     <div className="space-y-6 relative">
 
-      {/* --- 🟢 NEW: SLEEK CREATE POST TRIGGER --- */}
+      {/* --- CREATE POST TRIGGER --- */}
       {isCurrentUser && (
         <div 
           onClick={() => setIsCreatePostModalOpen(true)}
@@ -219,10 +231,10 @@ const UserPosts = ({ userId, isCurrentUser }) => {
                     </div>
                   </div>
                   
-                  {/* Delete Button */}
+                  {/* 🟢 Delete Button - Now triggers custom modal */}
                   {isCurrentUser && (
                     <button 
-                      onClick={() => handleDeletePost(post.id)}
+                      onClick={() => initiateDelete(post.id)}
                       title="Delete Post"
                       className="text-slate-400 hover:text-rose-500 p-2 rounded-xl hover:bg-rose-50 transition-colors"
                     >
@@ -342,6 +354,43 @@ const UserPosts = ({ userId, isCurrentUser }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 🟢 MODAL: CONFIRM DELETE */}
+      {/* ========================================================= */}
+      {postToDelete && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center">
+            
+            <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-rose-600" />
+            </div>
+            
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Post?</h3>
+            <p className="text-sm text-slate-500 mb-6 px-2">
+              Are you sure you want to delete this post? This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPostToDelete(null)}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md shadow-rose-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
