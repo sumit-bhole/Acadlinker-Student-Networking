@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { FaCheck, FaEdit, FaCamera } from "react-icons/fa";
-import { MapPin, Link as LinkIcon, GraduationCap, Calendar } from "lucide-react";
+import { MapPin, Link as LinkIcon, GraduationCap, Calendar, Layers } from "lucide-react";
 
 const ProfileSidebar = ({
   user,
@@ -14,143 +14,211 @@ const ProfileSidebar = ({
   openSkillsModal,
   openDetailsModal
 }) => {
+  // 🟢 NEW: State to toggle expanding the skills list
+  const [showAllSkills, setShowAllSkills] = useState(false);
+
+  // Parse skills safely
+  const allSkills = user.skills ? user.skills.split(",").map(s => s.trim()).filter(Boolean) : [];
+  const displayedSkills = showAllSkills ? allSkills : allSkills.slice(0, 6);
+  const hiddenCount = allSkills.length - 6;
+
   return (
-    <div className="w-full md:w-[450px] lg:w-[500px] flex-shrink-0 h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar bg-white border-r border-slate-200 shadow-sm">
-      <div className="flex flex-col min-h-full pb-0 pt-10">
+    // 🟢 WIDER & COLOR ENHANCED: Increased width to 380px/420px so content doesn't leak. Added a richer, softer background gradient wash.
+    <div className="w-full md:w-[380px] lg:w-[420px] flex-shrink-0 h-auto md:h-[calc(100vh-4rem)] flex flex-col bg-gradient-to-b from-[#f8fafc] via-white to-indigo-50/40 border-r border-slate-200/80 shadow-[4px_0_24px_-4px_rgba(99,102,241,0.05)] z-10 overflow-hidden relative">
+      
+      <div className="flex flex-col h-full pb-4">
+        
+        {/* 🟢 PREMIUM MESH BANNER: Upgraded to a richer Stripe-like gradient */}
+        <div className="h-28 w-full bg-gradient-to-r from-indigo-400 via-purple-400 to-rose-300 relative shrink-0">
+            <div className="absolute inset-0 opacity-[0.2] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:12px_12px]"></div>
+            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/10 to-transparent"></div>
+        </div>
         
         {/* Avatar & Action Button Row */}
-        <div className="flex justify-between items-start px-5 mb-5 shrink-0">
-          <div className="relative">
+        <div className="flex justify-between items-end px-5 sm:px-6 mb-3 shrink-0 relative z-10 -mt-12">
+          <div className="relative group">
+            {/* 🟢 COMPACT AVATAR */}
             <div 
               onClick={openAvatarModal}
-              className={`w-28 h-28 rounded-2xl border-[3px] border-slate-100 shadow-sm overflow-hidden bg-indigo-50 flex items-center justify-center ${isCurrentUser ? 'cursor-pointer group' : ''}`}
+              className={`w-24 h-24 rounded-[1.25rem] border-4 border-white shadow-md overflow-hidden bg-white flex items-center justify-center transition-all ${isCurrentUser ? 'cursor-pointer hover:shadow-lg' : ''}`}
             >
-              {/* 🟢 SMART INITIALS FALLBACK */}
               {hasValidProfilePic(user.profile_pic_url) ? (
                 <img src={user.profile_pic_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-5xl font-black text-indigo-400">{getInitials(user.full_name)}</span>
+                <span className="text-3xl font-black bg-gradient-to-br from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+                  {getInitials(user.full_name)}
+                </span>
               )}
+              
               {isCurrentUser && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <FaCamera className="text-white text-2xl" />
+                <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <FaCamera className="text-white text-xl drop-shadow-md" />
                 </div>
               )}
             </div>
+            
+            {/* Online Status */}
             {user.is_online && (
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-[3px] border-white rounded-full"></div>
+              <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-emerald-500 border-[3px] border-white rounded-full shadow-sm"></div>
             )}
           </div>
           
-          <div className="pt-2">
+          <div className="pb-1 scale-95 origin-bottom-right">
             {renderFriendButton()}
           </div>
         </div>
 
-        {/* Header Info, About & Location */}
-        <div className="px-5 shrink-0 relative group">
+        {/* 🟢 Header Info, About & Location */}
+        <div className="px-5 sm:px-6 shrink-0 relative group">
           {isCurrentUser && (
             <button 
               onClick={openBasicInfoModal}
-              className="absolute top-0 right-5 p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute top-0 right-5 p-1.5 bg-white/80 border border-slate-200/50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100 shadow-sm"
+              title="Edit Basic Info"
             >
-              <FaEdit />
+              <FaEdit size={12} />
             </button>
           )}
 
           <div className="flex items-center gap-1.5 pr-8">
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{user.full_name}</h1>
-            {user.is_verified && <FaCheck className="text-blue-500 text-sm" title="Verified" />}
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none truncate">{user.full_name}</h1>
+            {user.is_verified && <FaCheck className="text-blue-500 text-sm mt-0.5 shrink-0" title="Verified" />}
           </div>
           
+          {/* COMPACT DESC */}
           {user.description && (
-            <p className="text-slate-700 text-sm mt-3 mb-3 leading-relaxed font-medium pr-2">
+            <p className="text-slate-600 text-[13px] mt-2.5 mb-3 leading-relaxed font-medium pr-4 line-clamp-2">
               {user.description}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 mt-2 text-sm font-medium">
-            <p className="text-slate-500 flex items-center gap-1.5">
-              <MapPin className="w-4 h-4" />
-              {user.location || "Remote"}
+          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] font-bold">
+            <p className="text-slate-600 flex items-center gap-1.5 bg-white/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] px-2.5 py-1 rounded-md border border-slate-200/60">
+              <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="truncate max-w-[150px]">{user.location || "Remote"}</span>
             </p>
-            <span className="text-slate-300">•</span>
             <button 
               onClick={openContactModal} 
-              className="text-indigo-600 hover:underline font-bold"
+              className="text-indigo-600 hover:text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-100/80 px-2.5 py-1 rounded-md transition-colors shadow-sm"
             >
               Contact info
             </button>
           </div>
         </div>
 
-        {/* Stats Strip */}
-        <div className="grid grid-cols-3 border-y border-slate-100 py-5 mx-5 mt-6 mb-6 shrink-0 divide-x divide-slate-100">
-          <div className="text-center group">
-            <p className="text-2xl font-black text-slate-800 group-hover:text-amber-500 transition-colors">{user.rp || user.rp_points || user.reputation_points || "0"}</p>
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">RP Points</p>
+        {/* 🟢 UPGRADED FROSTED GLASS STATS STRIP */}
+        <div className="mx-5 sm:mx-6 my-6 bg-white/70 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[16px] py-3.5 px-4 flex justify-between items-center shrink-0 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-400 to-purple-400"></div>
+          
+          <div className="text-center flex-1 group/stat cursor-default">
+            <p className="text-xl font-black text-slate-800 group-hover/stat:text-amber-500 transition-colors leading-none">{user.rp || user.rp_points || user.reputation_points || "0"}</p>
+            <p className="text-[9px] uppercase tracking-widest text-indigo-500/80 font-extrabold mt-1.5">RP Points</p>
           </div>
-          <div className="text-center group">
-            <p className="text-2xl font-black text-slate-800 group-hover:text-blue-500 transition-colors">{user.friend_count || "0"}</p>
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Friends</p>
+          
+          <div className="w-[1px] h-8 bg-slate-200/80 mx-1"></div>
+          
+          <div className="text-center flex-1 group/stat cursor-default">
+            <p className="text-xl font-black text-slate-800 group-hover/stat:text-indigo-500 transition-colors leading-none">{user.friend_count || "0"}</p>
+            <p className="text-[9px] uppercase tracking-widest text-indigo-500/80 font-extrabold mt-1.5">Friends</p>
           </div>
-          <div className="text-center group">
-            <p className="text-2xl font-black text-slate-800 group-hover:text-purple-500 transition-colors">{user.post_count || "0"}</p>
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Posts</p>
+
+          <div className="w-[1px] h-8 bg-slate-200/80 mx-1"></div>
+          
+          <div className="text-center flex-1 group/stat cursor-default">
+            <p className="text-xl font-black text-slate-800 group-hover/stat:text-purple-500 transition-colors leading-none">{user.post_count || "0"}</p>
+            <p className="text-[9px] uppercase tracking-widest text-indigo-500/80 font-extrabold mt-1.5">Posts</p>
           </div>
         </div>
 
-        {/* Skills */}
-        <div className="px-5 mb-6 shrink-0 relative group">
+        {/* 🟢 EXPANDABLE SKILLS SECTION */}
+        <div className="px-5 sm:px-6 mb-6 shrink-0 relative group">
           {isCurrentUser && (
             <button 
               onClick={openSkillsModal}
-              className="absolute -top-2 right-5 p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-10"
+              className="absolute -top-1 right-6 p-1.5 bg-white/80 border border-slate-200/50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100 z-10 shadow-sm"
+              title="Edit Skills"
             >
-              <FaEdit />
+              <FaEdit size={12} />
             </button>
           )}
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Skills</h3>
+          <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-indigo-400" /> Core Skills
+          </h3>
+          
           <div className="flex flex-wrap gap-1.5 pr-8">
-            {user.skills ? user.skills.split(",").slice(0, 6).map((skill, i) => (
-              <span key={i} className="px-3 py-1 rounded-md border border-indigo-100 bg-indigo-50 text-indigo-700 text-xs font-bold">{skill.trim()}</span>
-            )) : <span className="text-sm text-slate-400 italic">No skills added</span>}
-            {user.skills && user.skills.split(",").length > 6 && (
-              <span className="px-2 py-1 text-slate-400 text-xs font-bold">+{user.skills.split(",").length - 6}</span>
+            {allSkills.length > 0 ? displayedSkills.map((skill, i) => (
+              <span key={i} className="px-2.5 py-1 rounded-md border border-white bg-white/80 shadow-sm text-slate-700 text-[10px] font-extrabold uppercase tracking-wider">
+                {skill}
+              </span>
+            )) : <span className="text-xs text-slate-400 font-medium">No skills added</span>}
+            
+            {/* Show '+X more' button if there are hidden skills */}
+            {!showAllSkills && hiddenCount > 0 && (
+              <button 
+                onClick={() => setShowAllSkills(true)}
+                className="px-2 py-1 rounded-md border border-indigo-200/60 bg-indigo-50/80 text-indigo-600 text-[10px] font-extrabold shadow-sm hover:bg-indigo-100 transition-colors"
+              >
+                +{hiddenCount} more
+              </button>
+            )}
+
+            {/* Show 'Show less' button if expanded */}
+            {showAllSkills && hiddenCount > 0 && (
+              <button 
+                onClick={() => setShowAllSkills(false)}
+                className="px-2 py-1 rounded-md border border-slate-200/80 bg-slate-50 text-slate-500 text-[10px] font-extrabold shadow-sm hover:bg-slate-100 transition-colors"
+              >
+                Show less
+              </button>
             )}
           </div>
         </div>
 
-        {/* Details */}
-        <div className="px-5 space-y-4 shrink-0 relative group pb-4">
+        {/* 🟢 COMPACT DETAILS (Takes remaining space) */}
+        <div className="px-5 sm:px-6 flex-1 relative group flex flex-col min-h-0 overflow-hidden">
           {isCurrentUser && (
             <button 
               onClick={openDetailsModal}
-              className="absolute -top-2 right-5 p-2 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-10"
+              className="absolute -top-1 right-6 p-1.5 bg-white/80 border border-slate-200/50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 rounded-lg transition-all md:opacity-0 md:group-hover:opacity-100 z-10 shadow-sm"
+              title="Edit Details"
             >
-              <FaEdit />
+              <FaEdit size={12} />
             </button>
           )}
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Details</h3>
+          <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5 shrink-0">
+             About
+          </h3>
           
-          <div className="flex items-center gap-3">
-            <GraduationCap className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="text-sm font-medium text-slate-700 truncate pr-8">{user.education || "Not specified"}</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="text-sm font-medium text-slate-700">Joined {new Date(user.created_at).toLocaleDateString('default', { month: 'short', year: 'numeric' })}</span>
-          </div>
-
-          {user.website && (
+          <div className="space-y-3.5 overflow-y-auto custom-scrollbar pr-2 pb-2">
             <div className="flex items-center gap-3">
-              <LinkIcon className="w-4 h-4 text-indigo-400 shrink-0" />
-              <a href={user.website} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-600 hover:underline truncate block pr-8">
-                {user.website}
-              </a>
+              <div className="p-1.5 bg-white shadow-sm border border-slate-100/80 rounded-lg text-amber-500 shrink-0">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+              <span className="text-[13px] font-bold text-slate-700 truncate pr-4 leading-tight">
+                {user.education || <span className="text-slate-400 font-medium">Not specified</span>}
+              </span>
             </div>
-          )}
+
+            {user.website && (
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-white shadow-sm border border-slate-100/80 rounded-lg text-blue-500 shrink-0">
+                  <LinkIcon className="w-4 h-4" />
+                </div>
+                <a href={user.website} target="_blank" rel="noopener noreferrer" className="text-[13px] font-bold text-indigo-600 hover:text-indigo-700 hover:underline truncate block pr-4 leading-tight">
+                  {user.website}
+                </a>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 bg-white shadow-sm border border-slate-100/80 rounded-lg text-emerald-500 shrink-0">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <span className="text-[13px] font-bold text-slate-600 leading-tight">
+                Joined {new Date(user.created_at).toLocaleDateString('default', { month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+          </div>
         </div>
 
       </div>
