@@ -8,3 +8,6 @@ class Message(db.Model):
     content = db.Column(db.Text)
     file_name = db.Column(db.String(120))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 🟢 NEW: Tracks whether the receiver has seen this message yet
+    is_read = db.Column(db.Boolean, default=False)

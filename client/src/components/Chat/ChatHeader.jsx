@@ -32,7 +32,9 @@ const ChatHeader = ({ currentFriend, onCloseChat }) => {
   if (!currentFriend) return null;
 
   const userPic = currentFriend.profile_pic_url || currentFriend.profile_image;
-  const userName = currentFriend.name || currentFriend.full_name || "Unknown User";
+  
+  // 🟢 FIX: Added `currentFriend.username` which is what your Flask backend actually sends!
+  const userName = currentFriend.username || currentFriend.full_name || currentFriend.name || "Unknown User";
   const userId = currentFriend.id;
 
   return (

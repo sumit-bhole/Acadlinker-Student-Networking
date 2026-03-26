@@ -5,7 +5,7 @@ import ChatHeader from "../components/Chat/ChatHeader";
 import MessageList from "../components/Chat/MessageList";
 import MessageInput from "../components/Chat/MessageInput";
 import EmptyState from "../components/Chat/EmptyState";
-import { AlertCircle } from "lucide-react"; // 🟢 ADDED for the delete modal
+import { AlertCircle } from "lucide-react";
 
 const ChatApp = () => {
   const [friends, setFriends] = useState([]);
@@ -21,16 +21,16 @@ const ChatApp = () => {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // 🟢 NEW: Delete Message State (Custom Modal instead of dirty alert)
+  // Delete Message State
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   
-  // Mobile State: true = show friend list, false = show chat
+  // Mobile State
   const [showMobileFriendList, setShowMobileFriendList] = useState(true);
 
-  // FETCH FRIEND LIST
+  // FETCH FRIEND LIST (🟢 CRITICAL FIX: Changed URL to messages/friends)
   useEffect(() => {
-    api.get("/api/friends/list")
+    api.get("/api/messages/friends") 
       .then((res) => setFriends(res.data))
       .catch((err) => console.log("Failed to fetch friends", err))
       .finally(() => setLoadingFriends(false));
@@ -43,8 +43,14 @@ const ChatApp = () => {
     try {
       const res = await api.get(`/api/messages/chat/${friendId}?page=1&limit=20`);
       setMessages(res.data.messages || []);
-      setHasMore(res.data.has_more); // Set from backend
+      setHasMore(res.data.has_more); 
       setPage(1);
+
+      // Optional: Clear the unread badge visually when you open the chat
+      setFriends(prev => prev.map(f => 
+        f.id === friendId ? { ...f, unread_count: 0 } : f
+      ));
+
     } catch (err) {
       console.error("Failed to load chat history:", err);
       setMessages([]);
@@ -61,7 +67,6 @@ const ChatApp = () => {
       const nextPage = page + 1;
       const res = await api.get(`/api/messages/chat/${currentFriend.id}?page=${nextPage}&limit=20`);
       
-      // Push older messages to the TOP of the array
       setMessages((prev) => [...(res.data.messages || []), ...prev]);
       setHasMore(res.data.has_more);
       setPage(nextPage);
@@ -96,8 +101,9 @@ const ChatApp = () => {
 
     const oldText = newMessageContent;
     const oldFile = selectedFile;
+    const activePreviewText = newMessageContent.trim() || "📷 Attachment"; // 🟢 For the sidebar preview
 
-    // Optimistic UI update
+    // Optimistic UI update for the Chat Window
     const tempMessage = {
       id: Date.now(),
       content: newMessageContent,
@@ -109,6 +115,29 @@ const ChatApp = () => {
     setMessages((prev) => [...prev, tempMessage]);
     setNewMessageContent("");
     setSelectedFile(null);
+
+    // ========================================================
+    // 🟢 OPTIMISTIC UI UPDATE FOR THE SIDEBAR
+    // Pushes the active friend to the top instantly!
+    // ========================================================
+    setFriends((prevFriends) => {
+      const friendIndex = prevFriends.findIndex(f => f.id === currentFriend.id);
+      if (friendIndex === -1) return prevFriends;
+
+      const updatedFriend = {
+        ...prevFriends[friendIndex],
+        last_message: activePreviewText,
+        last_message_time: new Date().toISOString(),
+        unread_count: 0 // Reset unread since you are actively chatting
+      };
+
+      const newFriendsList = [...prevFriends];
+      newFriendsList.splice(friendIndex, 1); // Remove them from old spot
+      newFriendsList.unshift(updatedFriend); // Drop them at the very top (index 0)
+
+      return newFriendsList;
+    });
+    // ========================================================
 
     try {
       const res = await api.post(`/api/messages/send/${currentFriend.id}`, formData);
@@ -123,28 +152,33 @@ const ChatApp = () => {
     }
   };
 
-  // 🟢 NEW: UNSEND MESSAGE HANDLERS
+  // UNSEND MESSAGE HANDLERS
   const initiateDeleteMessage = (messageId) => {
-    setMessageToDelete(messageId); // Opens the sleek modal
+    setMessageToDelete(messageId); 
   };
 
   const confirmDeleteMessage = async () => {
     if (!messageToDelete) return;
     setIsDeletingMessage(true);
 
-    // Optimistic UI Update: Remove it from the screen instantly for a snappy feel
+    // Optimistic UI Update: Remove it from the screen instantly
     setMessages((prev) => prev.filter(msg => msg.id !== messageToDelete));
 
     try {
       await api.delete(`/api/messages/${messageToDelete}`);
+      
+      // Update sidebar preview if the last message was deleted
+      // (A simple approach is to just re-fetch the friend list quietly)
+      // ✅ CORRECT URL
+api.get("/api/messages/friends").then((res) => setFriends(res.data));
+
     } catch (err) {
       console.error("Failed to delete message:", err);
       alert("Failed to unsend message. It may have already been deleted.");
-      // Re-fetch chat to restore the message if the server failed to delete it
       if (currentFriend) loadChat(currentFriend.id);
     } finally {
       setIsDeletingMessage(false);
-      setMessageToDelete(null); // Close modal
+      setMessageToDelete(null); 
     }
   };
 
@@ -184,7 +218,7 @@ const ChatApp = () => {
               />
             </div>
 
-            {/* Messages Area - Takes remaining space */}
+            {/* Messages Area */}
             <div className="flex-1 overflow-y-auto w-full custom-scrollbar flex flex-col">
                <MessageList 
                  messages={messages} 
@@ -193,11 +227,11 @@ const ChatApp = () => {
                  onLoadMore={loadMoreMessages}
                  hasMore={hasMore}
                  loadingMore={loadingMore}
-                 onDeleteMessage={initiateDeleteMessage} // 🟢 PASSED PROP TO REVEAL MODAL
+                 onDeleteMessage={initiateDeleteMessage}
                />
             </div>
             
-            {/* Input Area - Fixed at bottom */}
+            {/* Input Area */}
             <div className="flex-shrink-0 w-full bg-white border-t border-gray-200">
                <MessageInput
                  newMessageContent={newMessageContent}
@@ -213,9 +247,7 @@ const ChatApp = () => {
         )}
       </div>
 
-      {/* ========================================================= */}
-      {/* 🟢 SLEEK MODAL: CONFIRM UNSEND MESSAGE */}
-      {/* ========================================================= */}
+      {/* MODAL: CONFIRM UNSEND MESSAGE */}
       {messageToDelete && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center">
