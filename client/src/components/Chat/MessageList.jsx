@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
-import { Loader2, Copy, Trash2, CheckCheck } from "lucide-react"; // 🟢 ADDED ICONS
+import { Loader2, Copy, Trash2, CheckCheck } from "lucide-react";
 
 const isSameDay = (date1, date2) => {
   return (
@@ -25,7 +25,6 @@ const formatDateDivider = (dateString) => {
   });
 };
 
-// 🟢 CATCHING THE NEW PROP
 const MessageList = ({ messages, loadingChat, currentFriend, onLoadMore, hasMore, loadingMore, onDeleteMessage }) => {
   const containerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -104,7 +103,6 @@ const MessageList = ({ messages, loadingChat, currentFriend, onLoadMore, hasMore
               </div>
             )}
             
-            {/* 🟢 PASSED DELETE PROP DOWN */}
             <MessageBubble message={msg} onDelete={() => onDeleteMessage(msg.id)} />
           </React.Fragment>
         );
@@ -115,12 +113,11 @@ const MessageList = ({ messages, loadingChat, currentFriend, onLoadMore, hasMore
   );
 };
 
-// 🟢 UPDATED MESSAGE BUBBLE
+// 🟢 SLEEKER MESSAGE BUBBLE
 const MessageBubble = ({ message, onDelete }) => {
   const isSender = message.is_sender;
   const [copied, setCopied] = useState(false);
 
-  // Copy to clipboard logic
   const handleCopy = () => {
     if (message.content) {
       navigator.clipboard.writeText(message.content);
@@ -130,17 +127,16 @@ const MessageBubble = ({ message, onDelete }) => {
   };
 
   return (
-    // 🟢 Added 'group' here so hovering the row reveals the actions
-    <div className={`group flex ${isSender ? "justify-end" : "justify-start"} shrink-0 items-center gap-2`}>
+    <div className={`group flex ${isSender ? "justify-end" : "justify-start"} shrink-0 items-center gap-1.5`}>
       
-      {/* 🟢 ACTION MENU (Left side for Sender) */}
+      {/* 🟢 ACTION MENU (Left side for Sender) - Smaller & Softer */}
       {isSender && (
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 -mr-1">
-          <button onClick={handleCopy} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors" title="Copy Text">
-            {copied ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+        <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100 flex items-center gap-0.5">
+          <button onClick={handleCopy} className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-full transition-colors" title="Copy Text">
+            {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
-          <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors" title="Unsend Message">
-            <Trash2 className="w-4 h-4" />
+          <button onClick={onDelete} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50/80 rounded-full transition-colors" title="Unsend Message">
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -188,11 +184,11 @@ const MessageBubble = ({ message, onDelete }) => {
         </p>
       </div>
 
-      {/* 🟢 ACTION MENU (Right side for Receiver) */}
+      {/* 🟢 ACTION MENU (Right side for Receiver) - Smaller & Softer */}
       {!isSender && (
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 -ml-1">
-          <button onClick={handleCopy} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors" title="Copy Text">
-            {copied ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+        <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100 flex items-center">
+          <button onClick={handleCopy} className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-full transition-colors" title="Copy Text">
+            {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
         </div>
       )}
