@@ -61,16 +61,19 @@ class AuthServiceClass {
 
   // 3. Login with Google (New!)
   async loginWithGoogle() {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-      });
-      if (error) throw error;
-      return { success: true };
-    } catch (err) {
-      return { success: false, message: err.message };
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: import.meta.env.VITE_APP_URL
     }
+  });
+
+  if (error) {
+    return { success: false, message: error.message };
   }
+
+  return { success: true };
+}
 
   // 4. Logout
   async logout() {
