@@ -45,10 +45,10 @@ export const AuthProvider = ({ children }) => {
       // 3. Fetch Full Profile in Background
       console.log("🔄 Fetching full profile from backend...");
       try {
-        const response = await api.get(`/api/profile/${session.user.id}`);
+        const response = await api.get("/api/auth/status");
         console.log("✅ Backend profile loaded");
         // Update state with full details
-        setCurrentUser(prev => mergeUser(session.user, response.data));
+        setCurrentUser(prev => mergeUser(session.user, response.data.user));
       } catch (backendErr) {
         console.error("⚠️ Backend fetch failed (using basic profile):", backendErr);
       }

@@ -60,6 +60,11 @@ const App = () => {
           element={isAuthenticated ? <Home /> : <Navigate to="/auth" />}
         />
 
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Profile /> : <Navigate to="/auth" />}
+        />
+
         <Route 
           path="/notifications" 
           element={isAuthenticated ? <NotificationsPage /> : <Navigate to="/auth" />} 
