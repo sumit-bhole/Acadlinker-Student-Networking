@@ -4,6 +4,7 @@ import cloudinary.uploader
 
 from flask import jsonify, request, current_app, url_for, g
 from sqlalchemy import or_, desc
+from sqlalchemy.exc import IntegrityError # 🟢 ADDED: Required to prevent 500 crashes
 from app.extensions import db
 from app.models.post import Post
 from app.models.user import User
@@ -50,8 +51,8 @@ def _serialize_post(post, is_liked=False, is_saved=False):
         "file_url": image_url,
         "created_at": timestamp_str,
         "user": user_data,
-        # 🟢 NEW: Engagement Data
-        "likes_count": getattr(post, 'likes_count', 0),
+        # 🟢 Bulletproof fallback: If it's None in the DB, send 0 to React
+        "likes_count": post.likes_count if post.likes_count is not None else 0,
         "is_liked": is_liked,
         "is_saved": is_saved
     }
@@ -83,6 +84,7 @@ def create_new_post():
     if not title:
         return jsonify({"error": "Title is required"}), 400
 
+    # 🟢 REQUIREMENT: Enforce Image Upload on the Backend
     file_name = None
     if "file" in request.files and request.files["file"].filename:
         file = request.files["file"]
@@ -90,6 +92,8 @@ def create_new_post():
         if "." not in file.filename or file.filename.rsplit(".", 1)[1].lower() not in allowed_extensions:
             return jsonify({"error": "File must be png, jpg, or jpeg"}), 400
         file_name = _save_post_file(file)
+    else:
+        return jsonify({"error": "An image is required to create a post"}), 400 # Strict validation
 
     post = Post(
         user_id=g.user_id,
@@ -137,15 +141,14 @@ def get_home_feed_posts():
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Pagination limits (Protect the free tier RAM!)
     page = request.args.get('page', 1, type=int)
     per_page = 20
 
-    # 1. Base Query: Friends + Self
-    friend_ids = [friend.id for friend in current_user.friends] + [current_user.id]
+    # 1. FRIEND POSTS
+    friend_ids = [f.id for f in current_user.friends] + [current_user.id]
     q1 = db.session.query(Post.id).filter(Post.user_id.in_(friend_ids))
 
-    # 2. Hybrid Query: Match user skills using Trigram Indexes
+    # 2. SKILL POSTS
     q2 = None
     if current_user.skills:
         skills = [s.strip() for s in current_user.skills.split(',') if s.strip()]
@@ -156,10 +159,22 @@ def get_home_feed_posts():
         if skill_filters:
             q2 = db.session.query(Post.id).filter(or_(*skill_filters))
 
-    # 3. UNION: Combines both lists instantly in Postgres and removes duplicates
-    valid_post_ids = q1.union(q2) if q2 else q1
+    # 3. TRENDING POSTS 
+    q3 = db.session.query(Post.id).order_by(
+        Post.likes_count.desc(),
+        Post.timestamp.desc()
+    ).limit(100)
 
-    # 4. N+1 ELIMINATION: Fetch posts AND boolean flags in a SINGLE SQL query
+    # 4. RECENT POSTS 
+    q4 = db.session.query(Post.id).order_by(Post.timestamp.desc()).limit(100)
+
+    # COMBINE ALL
+    combined_query = q1
+    if q2:
+        combined_query = combined_query.union(q2)
+    combined_query = combined_query.union(q3).union(q4)
+
+    # FINAL FETCH
     is_liked_subq = db.session.query(Like.id).filter(Like.post_id == Post.id, Like.user_id == g.user_id).exists()
     is_saved_subq = db.session.query(SavedPost.id).filter(SavedPost.post_id == Post.id, SavedPost.user_id == g.user_id).exists()
 
@@ -169,7 +184,7 @@ def get_home_feed_posts():
             is_liked_subq.label('is_liked'),
             is_saved_subq.label('is_saved')
         )
-        .filter(Post.id.in_(valid_post_ids))
+        .filter(Post.id.in_(combined_query))
         .order_by(Post.timestamp.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
@@ -183,7 +198,6 @@ def get_home_feed_posts():
 # 🟢 NEW: Saved Posts Feed
 # -------------------------------------------------
 def get_saved_posts():
-    # Only fetch posts the current user has saved
     is_liked_subq = db.session.query(Like.id).filter(Like.post_id == Post.id, Like.user_id == g.user_id).exists()
     
     saved_posts_query = (
@@ -197,53 +211,62 @@ def get_saved_posts():
         .all()
     )
 
-    # Note: is_saved is implicitly True here
     return jsonify([_serialize_post(post, is_liked, is_saved=True) for post, is_liked in saved_posts_query]), 200
 
 # -------------------------------------------------
-# 🟢 NEW: Toggle Like
+# 🟢 UPDATED: Toggle Like (Race-Condition Proof)
 # -------------------------------------------------
 def toggle_like(post_id):
     like = Like.query.filter_by(user_id=g.user_id, post_id=post_id).first()
     
-    if like:
-        db.session.delete(like)
-        is_liked = False
-        message = "Post unliked"
-    else:
-        new_like = Like(user_id=g.user_id, post_id=post_id)
-        db.session.add(new_like)
-        is_liked = True
-        message = "Post liked"
+    try:
+        if like:
+            db.session.delete(like)
+            is_liked = False
+            message = "Post unliked"
+        else:
+            new_like = Like(user_id=g.user_id, post_id=post_id)
+            db.session.add(new_like)
+            is_liked = True
+            message = "Post liked"
 
-    db.session.commit()
-    
-    # Fetch the updated like count (which was updated automatically by our SQL Trigger)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        is_liked = not bool(like)
+        message = "Action already processed"
+
     post = Post.query.get(post_id)
     
     return jsonify({
         "message": message,
         "is_liked": is_liked,
-        "likes_count": post.likes_count
+        "likes_count": post.likes_count if post and post.likes_count is not None else 0
     }), 200
 
 # -------------------------------------------------
-# 🟢 NEW: Toggle Save
+# 🟢 UPDATED: Toggle Save (Race-Condition Proof)
 # -------------------------------------------------
 def toggle_save(post_id):
     saved_post = SavedPost.query.filter_by(user_id=g.user_id, post_id=post_id).first()
     
-    if saved_post:
-        db.session.delete(saved_post)
-        is_saved = False
-        message = "Post removed from saved"
-    else:
-        new_save = SavedPost(user_id=g.user_id, post_id=post_id)
-        db.session.add(new_save)
-        is_saved = True
-        message = "Post saved"
+    try:
+        if saved_post:
+            db.session.delete(saved_post)
+            is_saved = False
+            message = "Post removed from saved"
+        else:
+            new_save = SavedPost(user_id=g.user_id, post_id=post_id)
+            db.session.add(new_save)
+            is_saved = True
+            message = "Post saved"
 
-    db.session.commit()
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        is_saved = not bool(saved_post)
+        message = "Action already processed"
+
     return jsonify({"message": message, "is_saved": is_saved}), 200
 
 # -------------------------------------------------

@@ -1,55 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../api/axios";
-import { Link } from "react-router-dom";
-import { Image, Send, Paperclip, Clock, X, Trash2, Edit3, AlertCircle } from "lucide-react"; 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🚀 Added React Query
-
-// --- HELPERS ---
-const getImageUrl = (url) => {
-  if (!url) return null;
-  if (!url.startsWith("http") && !url.startsWith("https")) {
-    return `http://localhost:5000/static/uploads/${url}`;
-  }
-  return url;
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "Just now";
-  try {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch (e) {
-    return "Recently";
-  }
-};
-
-const getInitials = (name) => {
-  if (!name || name === "Unknown User") return "?";
-  return name.charAt(0).toUpperCase();
-};
+import { Image as ImageIcon, Send, X, Trash2, Edit3, AlertCircle, Loader2 } from "lucide-react"; 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import PostCard from "./PostCard";
 
 const UserPosts = ({ userId, isCurrentUser }) => {
-  const queryClient = useQueryClient(); // 🚀 React Query Client
+  const queryClient = useQueryClient();
 
   // Modal States
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
-  
-  // Delete Confirmation States
   const [postToDelete, setPostToDelete] = useState(null);
 
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null); // 🚀 NEW: Image Preview State
   
   // Lightbox State
   const [expandedImage, setExpandedImage] = useState(null);
 
-  // 🚀 REACT QUERY: FETCH POSTS (Replaces useEffect)
+  // 🚀 REACT QUERY: FETCH POSTS
   const { data: posts = [], isLoading: loading } = useQuery({
     queryKey: ['posts', userId],
     queryFn: async () => {
@@ -59,20 +30,43 @@ const UserPosts = ({ userId, isCurrentUser }) => {
     enabled: !!userId,
   });
 
+  // 🚀 CLEANUP: Prevent memory leaks from object URLs when modal closes
+  useEffect(() => {
+    if (!isCreatePostModalOpen && previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      setFile(null);
+      setTitle("");
+      setDescription("");
+    }
+  }, [isCreatePostModalOpen]);
+
+  // 🚀 FILE HANDLER
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      // Generate a temporary local URL to show the image preview immediately
+      setPreviewUrl(URL.createObjectURL(selectedFile));
+    }
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    const fileInput = document.getElementById("fileInput");
+    if (fileInput) fileInput.value = "";
+  };
+
   // 🚀 REACT QUERY: CREATE POST MUTATION
   const createPostMutation = useMutation({
     mutationFn: (formData) => api.post("/api/posts/create", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
     onSuccess: () => {
-      // Refresh posts automatically
       queryClient.invalidateQueries({ queryKey: ['posts', userId] });
-      setTitle("");
-      setDescription("");
-      setFile(null);
       setIsCreatePostModalOpen(false); 
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput) fileInput.value = "";
     },
     onError: (err) => {
       console.error("Post create failed:", err);
@@ -84,7 +78,6 @@ const UserPosts = ({ userId, isCurrentUser }) => {
   const deletePostMutation = useMutation({
     mutationFn: (postId) => api.delete(`/api/posts/${postId}`),
     onSuccess: () => {
-      // Refresh posts automatically
       queryClient.invalidateQueries({ queryKey: ['posts', userId] });
       setPostToDelete(null); 
     },
@@ -100,62 +93,24 @@ const UserPosts = ({ userId, isCurrentUser }) => {
       alert("Title is required");
       return;
     }
+    // 🟢 REQUIREMENT 1: Enforce Image Upload
+    if (!file) {
+      alert("An image is required to create a post.");
+      return;
+    }
     
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
-    if (file) formData.append("file", file);
+    formData.append("file", file);
 
     createPostMutation.mutate(formData);
-  };
-
-  const initiateDelete = (postId) => {
-    setPostToDelete(postId);
   };
 
   const confirmDelete = () => {
     if (postToDelete) {
       deletePostMutation.mutate(postToDelete);
     }
-  };
-
-  // Render File Helper
-  const renderFile = (rawUrl) => {
-    const url = getImageUrl(rawUrl);
-    if (!url) return null;
-    const ext = url.split(".").pop()?.toLowerCase() || "";
-    const isImage = ["png", "jpg", "jpeg", "gif", "webp"].includes(ext) || url.includes("cloudinary");
-
-    if (isImage) {
-      return (
-        <div 
-          className="w-full mt-3 bg-slate-100 rounded-xl overflow-hidden cursor-pointer group relative"
-          onClick={() => setExpandedImage(url)}
-        >
-          <img 
-            src={url} 
-            alt="Attachment" 
-            className="w-full h-64 sm:h-80 object-cover group-hover:scale-105 transition-transform duration-500" 
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
-        </div>
-      );
-    }
-    
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-3 flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 hover:bg-indigo-100 transition-colors text-sm"
-      >
-        <div className="p-2 bg-white rounded-lg shadow-sm">
-          <Paperclip className="w-4 h-4" />
-        </div>
-        <span className="font-medium">Download Attachment</span>
-      </a>
-    );
   };
 
   if (loading)
@@ -178,7 +133,7 @@ const UserPosts = ({ userId, isCurrentUser }) => {
             <Edit3 className="w-5 h-5 text-indigo-500" />
           </div>
           <div className="flex-1 bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-100 rounded-full px-5 py-3 text-slate-500 font-medium text-sm">
-            Share your thoughts, ideas, or updates...
+            Share a photo and your thoughts...
           </div>
         </div>
       )}
@@ -187,77 +142,32 @@ const UserPosts = ({ userId, isCurrentUser }) => {
       {posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-dashed border-slate-300 text-center">
           <div className="bg-slate-50 p-4 rounded-full mb-3 border border-slate-100">
-             <Image className="w-6 h-6 text-slate-400" />
+             <ImageIcon className="w-6 h-6 text-slate-400" />
           </div>
           <p className="text-slate-500 font-bold">No posts to show yet.</p>
         </div>
       ) : (
         <div className="space-y-6"> 
-          {posts.map((post) => {
-            const userObj = post.user || {};
-            const userName = userObj.full_name || "Unknown User";
-            const userPic = userObj.profile_pic_url || "/default-profile.png";
-            const timestamp = post.created_at || post.timestamp;
+          {posts.map((post) => (
+            <div key={post.id} className="relative group/post">
+              
+              <PostCard 
+                post={post} 
+                onExpandImage={setExpandedImage} 
+              />
+              
+              {isCurrentUser && (
+                <button 
+                  onClick={() => setPostToDelete(post.id)}
+                  title="Delete Post"
+                  className="absolute top-4 right-4 z-10 p-2 bg-white/90 backdrop-blur-sm text-slate-400 hover:text-rose-500 rounded-xl border border-slate-100 shadow-sm opacity-0 group-hover/post:opacity-100 transition-all hover:bg-rose-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
 
-            return (
-              <div
-                key={post.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
-              >
-                {/* Post Header */}
-                <div className="px-5 py-4 flex items-start justify-between border-b border-slate-50">
-                  <div className="flex items-center gap-3">
-                    <Link to={`/profile/${userObj.id}`} className="shrink-0">
-                      {userPic && userPic !== "/default-profile.png" ? (
-                        <img src={userPic} alt={userName} className="w-10 h-10 rounded-full object-cover border border-slate-100 p-[2px] ring-2 ring-transparent hover:ring-indigo-400 transition-all" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full border border-slate-100 p-[2px] ring-2 ring-transparent hover:ring-indigo-400 transition-all bg-indigo-50 flex items-center justify-center">
-                          <span className="text-sm font-black text-indigo-400">{getInitials(userName)}</span>
-                        </div>
-                      )}
-                    </Link>
-                    <div>
-                      <Link to={`/profile/${userObj.id}`} className="font-bold text-slate-900 text-sm hover:text-indigo-600 transition-colors leading-tight">
-                        {userName}
-                      </Link>
-                      <div className="flex items-center gap-1 text-xs font-medium text-slate-400 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {formatDate(timestamp)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Delete Button */}
-                  {isCurrentUser && (
-                    <button 
-                      onClick={() => initiateDelete(post.id)}
-                      title="Delete Post"
-                      className="text-slate-400 hover:text-rose-500 p-2 rounded-xl hover:bg-rose-50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Post Body */}
-                <div className="px-5 pt-3 pb-4">
-                  {post.title && (
-                    <h3 className="text-lg font-extrabold text-slate-900 mb-1 leading-tight">
-                      {post.title}
-                    </h3>
-                  )}
-                  {post.description && (
-                    <p className="text-slate-700 text-sm font-medium leading-relaxed whitespace-pre-wrap">
-                      {post.description}
-                    </p>
-                  )}
-                  
-                  {/* Attachments */}
-                  {post.file_url && renderFile(post.file_url)}
-                </div>
-              </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -294,24 +204,29 @@ const UserPosts = ({ userId, isCurrentUser }) => {
 
                 <div>
                   <textarea
-                    placeholder="What's on your mind? Share details, code, or ideas..."
-                    className="w-full min-h-[120px] text-slate-600 font-medium placeholder-slate-400 border-none focus:ring-0 p-0 focus:outline-none resize-none text-sm leading-relaxed"
-                    rows="5"
+                    placeholder="What's on your mind? Share details or ideas..."
+                    className="w-full min-h-[80px] text-slate-600 font-medium placeholder-slate-400 border-none focus:ring-0 p-0 focus:outline-none resize-none text-sm leading-relaxed"
+                    rows="3"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
 
-                {file && (
-                  <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold w-max max-w-full">
-                    <Image className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{file.name}</span>
+                {/* 🟢 REQUIREMENT 2: LIVE IMAGE PREVIEW */}
+                {previewUrl && (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shadow-sm group">
+                    <img 
+                      src={previewUrl} 
+                      alt="Upload preview" 
+                      className="w-full max-h-64 object-contain"
+                    />
                     <button 
                       type="button" 
-                      onClick={() => setFile(null)}
-                      className="ml-2 hover:bg-indigo-100 p-1 rounded-full text-indigo-500 hover:text-indigo-800"
+                      onClick={removeFile}
+                      className="absolute top-2 right-2 bg-slate-900/60 text-white p-1.5 rounded-full hover:bg-rose-500 transition-colors backdrop-blur-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                      title="Remove image"
                     >
-                      <X size={14} />
+                      <X size={16} />
                     </button>
                   </div>
                 )}
@@ -323,23 +238,26 @@ const UserPosts = ({ userId, isCurrentUser }) => {
                 <div className="flex items-center">
                   <label 
                     htmlFor="fileInput" 
-                    className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 cursor-pointer transition-colors"
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 cursor-pointer transition-colors"
                     title="Add Media"
                   >
-                    <Image className="w-5 h-5" />
+                    <ImageIcon className="w-5 h-5" />
                   </label>
                   <input
                     id="fileInput"
                     type="file"
                     accept="image/png, image/jpeg, image/jpg, image/webp"
                     className="hidden"
-                    onChange={(e) => setFile(e.target.files[0])}
+                    onChange={handleFileChange}
                   />
+                  {/* Warning if no image selected */}
+                  {!file && <span className="text-xs font-bold text-rose-500 ml-3">Image required *</span>}
                 </div>
 
+                {/* 🟢 REQUIREMENT 1: Disable button if no file is selected */}
                 <button
                   type="submit"
-                  disabled={createPostMutation.isPending || !title.trim()}
+                  disabled={createPostMutation.isPending || !title.trim() || !file}
                   className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createPostMutation.isPending ? "Posting..." : <><span className="hidden sm:inline">Post</span><Send className="w-3.5 h-3.5" /></>}
@@ -379,7 +297,7 @@ const UserPosts = ({ userId, isCurrentUser }) => {
                 disabled={deletePostMutation.isPending}
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md shadow-rose-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {deletePostMutation.isPending ? "Deleting..." : "Delete"}
+                {deletePostMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : "Delete"}
               </button>
             </div>
 
