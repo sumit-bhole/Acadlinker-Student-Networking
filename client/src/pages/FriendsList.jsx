@@ -68,7 +68,11 @@ const FriendsList = () => {
         filtered.sort((a, b) => a.name?.localeCompare(b.name));
         break;
       case "recent":
-        filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        filtered.sort((a, b) => {
+          const dateA = new Date(a.created_at || 0).getTime();
+          const dateB = new Date(b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
         break;
       default:
         break;
@@ -287,9 +291,8 @@ const FriendsList = () => {
                           <span className="text-3xl font-black text-indigo-400">{getInitials(friend.name)}</span>
                         </div>
                       )}
-                      <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
                     </div>
-                    
+                  
                     <h3 className="font-bold text-slate-900 mt-3 group-hover:text-indigo-600 transition-colors">
                       {friend.name}
                     </h3>
@@ -502,8 +505,7 @@ const FriendsList = () => {
                               <span className="text-lg font-black text-indigo-400">{getInitials(friend.name)}</span>
                             </div>
                           )}
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                        </div>
+                          </div>
                         
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">

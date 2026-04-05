@@ -9,7 +9,8 @@ from app.extensions import db
 from app.models.user import User
 from app.models.post import Post
 from app.models.friend_request import FriendRequest
-from app.models.help_request import HelpRequest 
+from app.models.help_request import HelpRequest
+from app.services.ml_service import trigger_ml_update_for_user 
 
 # -------------------------------------------------
 # Helpers (Private)
@@ -224,6 +225,10 @@ def update_user_profile():
         # 5. Commit and Refresh
         db.session.commit()
         db.session.refresh(current_user) 
+
+        # 🚀 FIRE AND FORGET THE ML ENGINE
+        # This runs silently in the background. The user gets their response instantly.
+        trigger_ml_update_for_user(current_user.id)
         
         return jsonify({
             "message": "Profile updated successfully",
