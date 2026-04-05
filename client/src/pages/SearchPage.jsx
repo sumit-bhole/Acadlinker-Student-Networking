@@ -1,99 +1,132 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useSearchParams, Link } from "react-router-dom";
-// --- CRITICAL FIX: Use 'api' instead of 'axios' ---
-import api from "../api/axios"; 
-import { Loader2 } from "lucide-react";
+import { SearchX, MapPin, UserCheck, ChevronRight } from "lucide-react";
+import { useSearchQuery } from "../hooks/useSearch";
+import { useDebounce } from "../hooks/useDebounce"; // 🟢 IMPORT HOOK
+
+// --- HELPERS ---
+const getInitials = (name) => {
+  if (!name) return "?";
+  return name.charAt(0).toUpperCase();
+};
+
+const hasValidProfilePic = (url) => {
+  return url && typeof url === 'string' && !url.includes("default");
+};
+
+// --- SKELETON LOADER ---
+const SearchSkeleton = () => (
+  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 animate-pulse">
+    <div className="w-14 h-14 rounded-full bg-slate-200 shrink-0"></div>
+    <div className="flex-1 space-y-3">
+      <div className="w-40 h-4 bg-slate-200 rounded-full"></div>
+      <div className="w-24 h-3 bg-slate-100 rounded-full"></div>
+    </div>
+  </div>
+);
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const query = searchParams.get("q") || "";
 
-  // Get the 'q' parameter from the URL (e.g., /search?q=John)
-  const query = searchParams.get("q");
+  // 🟢 DEBOUNCE: Only updates 300ms after the user stops typing
+  const debouncedQuery = useDebounce(query, 300);
 
-  useEffect(() => {
-    // If there's no query, don't search
-    if (!query) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
+  // 🚀 Pass the debounced query to React Query, not the raw one
+  const { data: results = [], isLoading } = useSearchQuery(debouncedQuery);
 
-    const fetchResults = async () => {
-      setLoading(true);
-      try {
-        // --- CRITICAL FIX: Use 'api.get' ---
-        // This automatically adds the "Authorization: Bearer <token>" header
-        const res = await api.get(`/api/search?q=${encodeURIComponent(query)}`);
-        setResults(res.data);
-      } catch (err) {
-        console.error("Error fetching search results:", err);
-        setResults([]); 
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResults();
-  }, [query]); 
-
-  // 1. Show a loading spinner
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-      </div>
-    );
+  // Don't show anything if the search bar is completely empty
+  if (!query.trim()) {
+    return null; 
   }
 
-  // 2. Show the results (or no results message)
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">
-        Search Results for: <span className="text-indigo-600">"{query}"</span>
-      </h1>
+    <div className="max-w-4xl mx-auto px-4 py-8 lg:py-12 min-h-[calc(100vh-4rem)]">
+      
+      <div className="mb-8 border-b border-slate-200 pb-6">
+        <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Search Results for <span className="text-indigo-600 bg-indigo-50 px-2 rounded-md">"{query}"</span>
+        </h1>
+        <p className="text-slate-500 font-medium mt-2">
+          {isLoading ? "Searching network..." : `Found ${results.length} student${results.length === 1 ? '' : 's'}`}
+        </p>
+      </div>
 
-      {results.length > 0 ? (
+      {/* LOADING STATE */}
+      {isLoading ? (
+        <div className="space-y-4">
+          <SearchSkeleton />
+          <SearchSkeleton />
+          <SearchSkeleton />
+        </div>
+      ) : results.length > 0 ? (
+        
+        /* 🟢 RESULTS STATE: Converted back to List View (space-y-4) */
         <div className="space-y-4">
           {results.map((user) => (
             <Link
               key={user.id}
               to={`/profile/${user.id}`}
-              className="block bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition border border-gray-100"
+              className="group flex items-center p-5 bg-white rounded-2xl shadow-sm hover:shadow-md border border-slate-100 hover:border-indigo-100 transition-all duration-200"
             >
-              <div className="flex items-center space-x-4">
-                <img
-                  src={user.profile_pic_url || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"}
-                  alt={user.full_name}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-indigo-100"
-                />
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{user.full_name}</h3>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
-                     <span>{user.email}</span>
-                     {user.location && (
-                        <>
-                            <span>•</span>
-                            <span>{user.location}</span>
-                        </>
-                     )}
+              {/* Avatar */}
+              <div className="relative shrink-0 mr-4">
+                {hasValidProfilePic(user.profile_pic_url) ? (
+                  <img
+                    src={user.profile_pic_url}
+                    alt={user.full_name}
+                    loading="lazy"      // 🟢 ADDED: Defers loading off-screen images
+                    decoding="async"    // 🟢 ADDED: Prevents UI freezing while decoding
+                    className="w-14 h-14 rounded-full object-cover shadow-sm ring-2 ring-transparent group-hover:ring-indigo-100 transition-all"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xl font-black shadow-sm ring-2 ring-transparent group-hover:ring-indigo-100 transition-all">
+                    {getInitials(user.full_name)}
                   </div>
-                  {/* Show friendship status if available */}
-                  {user.is_friend && (
-                      <span className="inline-block mt-2 px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">
-                        Friend
-                      </span>
-                  )}
+                )}
+                
+                {/* Friendship Badge overlay */}
+                {user.is_friend && (
+                  <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white shadow-sm" title="Connected">
+                    <UserCheck size={12} strokeWidth={3} />
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                  {user.full_name}
+                </h3>
+                <div className="flex items-center gap-2 mt-1 text-sm font-medium text-slate-500 truncate">
+                   <span className="truncate">{user.email}</span>
                 </div>
+                {user.location && (
+                  <div className="flex items-center gap-1 mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <MapPin size={14} />
+                    <span className="truncate">{user.location}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Arrow Indicator */}
+              <div className="pl-4 text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all">
+                <ChevronRight size={24} />
               </div>
             </Link>
           ))}
         </div>
+
       ) : (
-        <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-          <p className="text-xl text-gray-500">No results found for "{query}".</p>
-          <p className="text-sm text-gray-400 mt-2">Try checking your spelling or searching for a different name.</p>
+        /* EMPTY STATE */
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-200 border-dashed text-center">
+          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100 shadow-inner">
+            <SearchX className="w-10 h-10 text-slate-300" />
+          </div>
+          <h3 className="text-xl font-extrabold text-slate-800 mb-2">No peers found</h3>
+          <p className="text-slate-500 font-medium max-w-sm px-4">
+            We couldn't find anyone matching <span className="font-bold">"{query}"</span>. Try checking for typos or using a different name.
+          </p>
         </div>
       )}
     </div>

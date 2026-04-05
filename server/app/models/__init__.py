@@ -8,6 +8,9 @@ from .notification import Notification
 from .help_request import HelpRequest
 from .solution import Solution
 
+from .like import Like
+from .saved_post import SavedPost
+
 # 🆕 Team & Task Models
 from .team import Team, TeamMember, TeamInvite, JoinRequest, TeamMessage
 from .task import Task

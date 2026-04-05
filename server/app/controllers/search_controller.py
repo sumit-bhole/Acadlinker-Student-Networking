@@ -3,28 +3,33 @@ from sqlalchemy import or_
 from app.models.user import User
 
 def perform_search():
-    search_term = request.args.get("q")
+    # 1. Strip whitespace
+    search_term = request.args.get("q", "").strip()
+    
+    # 2. Prevent expensive DB calls for tiny queries
     if not search_term:
-        return jsonify({"error": "Search query not provided"}), 400
+        return jsonify([]), 200
 
     search_query = f"%{search_term}%"
 
     try:
+        # 3. MAANG FIX: Always LIMIT your search queries. 
+        # Supabase free tier will timeout on full table scans eventually.
         users = User.query.filter(
-            User.id != g.user_id, # Don't show myself
+            User.id != g.user_id,
             or_(
                 User.full_name.ilike(search_query),
                 User.email.ilike(search_query)
             )
-        ).all()
+        ).limit(25).all() # <-- CRITICAL: Caps RAM usage on Render
 
         return jsonify([
             {
                 "id": user.id,
                 "full_name": user.full_name,
                 "email": user.email,
-                "profile_pic_url": user.profile_pic,
-                "location": user.location
+                "profile_pic_url": getattr(user, 'profile_pic', None),
+                "location": getattr(user, 'location', None)
             }
             for user in users
         ]), 200
