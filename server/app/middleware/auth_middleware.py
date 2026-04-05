@@ -35,7 +35,7 @@ def token_required(f):
                 options={"verify_aud": False}
             )
 
-            print("✅ JWT Payload:", payload)
+            print("✅ JWT Payload:", payload.get("email"))
 
             g.user_id = payload.get("sub")
             g.user_email = payload.get("email")

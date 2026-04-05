@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import AuthService from "../api/auth";
 import api from "../api/axios"; 
+import { useQueryClient } from "@tanstack/react-query"; // ✅ IMPORT ADDED
 
 const AuthContext = createContext();
 
@@ -12,49 +13,61 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to merge Supabase Auth data with Backend Profile data
+  const queryClient = useQueryClient(); // ✅ INITIATE QUERY CLIENT
+
   const mergeUser = (sessionUser, backendProfile = {}) => {
     return {
       id: sessionUser.id,
       email: sessionUser.email,
-      // Prefer backend data, fallback to Supabase metadata
-      full_name: backendProfile.full_name || sessionUser.user_metadata?.full_name || "User",
-      profile_pic: backendProfile.profile_pic || sessionUser.user_metadata?.avatar_url,
-      ...backendProfile // Spread remaining backend fields (skills, etc.)
+      full_name:
+        backendProfile.full_name ||
+        sessionUser.user_metadata?.full_name ||
+        "User",
+      profile_pic:
+        backendProfile.profile_pic ||
+        sessionUser.user_metadata?.avatar_url,
+      ...backendProfile,
     };
   };
 
   const refreshUser = async () => {
     try {
-      // 1. Check Supabase Session
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         setIsAuthenticated(false);
         setCurrentUser(null);
-        setLoading(false); // Stop loading immediately
+        setLoading(false);
         return;
       }
 
-      // 2. Set Basic User (So the app loads INSTANTLY)
+      // ✅ instant UI load
       const basicUser = mergeUser(session.user);
       setCurrentUser(basicUser);
       setIsAuthenticated(true);
-      setLoading(false); // <--- UNBLOCK THE UI HERE
+      setLoading(false);
 
-      // 3. Fetch Full Profile in Background
-      console.log("🔄 Fetching full profile from backend...");
+      // 🚀 REACT QUERY INTEGRATION
+      // React Query natively deduplicates identical simultaneous requests,
+      // meaning you no longer need the hacky `hasFetched` useRef!
+      console.log("🔄 Fetching full profile...");
       try {
-        const response = await api.get("/api/auth/status");
-        console.log("✅ Backend profile loaded");
-        // Update state with full details
-        setCurrentUser(prev => mergeUser(session.user, response.data.user));
-      } catch (backendErr) {
-        console.error("⚠️ Backend fetch failed (using basic profile):", backendErr);
+        const backendUser = await queryClient.fetchQuery({
+          queryKey: ['authStatus', session.user.id],
+          queryFn: async () => {
+            const response = await api.get("/api/auth/status");
+            return response.data.user;
+          },
+          staleTime: Infinity, // ✅ CRITICAL FIX: Tell React Query this NEVER expires on its own
+        });
+
+        setCurrentUser(prev => mergeUser(session.user, backendUser));
+      } catch (err) {
+        console.warn("Backend profile failed:", err);
       }
 
     } catch (error) {
-      console.error("Auth Check Error:", error);
+      console.error("Auth Error:", error);
       setIsAuthenticated(false);
       setCurrentUser(null);
       setLoading(false);
@@ -62,31 +75,38 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // ✅ Triggers safely. React Query handles the deduplication if Strict Mode fires it twice.
     refreshUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            // Re-run the fetch logic
-            refreshUser();
-        } else if (event === 'SIGNED_OUT') {
+      async (event) => {
+        console.log("🔁 Auth Event:", event);
+
+        if (event === "SIGNED_IN") {
+          refreshUser();
+        }
+
+        if (event === "SIGNED_OUT") {
           setIsAuthenticated(false);
           setCurrentUser(null);
-          setLoading(false);
+          // ✅ Clear the React Query auth cache entirely when they log out
+          queryClient.removeQueries({ queryKey: ['authStatus'] }); 
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, []); // <-- Dependencies safely empty
 
   const login = async (data) => await AuthService.login(data);
   const register = async (data) => await AuthService.register(data);
   const loginWithGoogle = async () => await AuthService.loginWithGoogle();
+
   const logout = async () => {
     await AuthService.logout();
     setIsAuthenticated(false);
     setCurrentUser(null);
+    queryClient.removeQueries({ queryKey: ['authStatus'] }); // ✅ Clear cache on manual logout too
   };
 
   if (loading) {

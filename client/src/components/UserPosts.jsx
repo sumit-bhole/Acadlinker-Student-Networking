@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import api from "../api/axios";
 import { Link } from "react-router-dom";
-import { Image, Send, Paperclip, Clock, X, Trash2, Edit3, AlertCircle } from "lucide-react"; // 🟢 ADDED AlertCircle
+import { Image, Send, Paperclip, Clock, X, Trash2, Edit3, AlertCircle } from "lucide-react"; 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🚀 Added React Query
 
 // --- HELPERS ---
 const getImageUrl = (url) => {
@@ -32,94 +33,89 @@ const getInitials = (name) => {
 };
 
 const UserPosts = ({ userId, isCurrentUser }) => {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient(); // 🚀 React Query Client
 
   // Modal States
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   
-  // 🟢 NEW: Delete Confirmation States
+  // Delete Confirmation States
   const [postToDelete, setPostToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
-  const [creating, setCreating] = useState(false);
   
   // Lightbox State
   const [expandedImage, setExpandedImage] = useState(null);
 
-  // Fetch Posts
-  useEffect(() => {
-    if (!userId) return;
-    const fetchPosts = async () => {
-      try {
-        const res = await api.get(`/api/profile/${userId}/posts`);
-        setPosts(res.data);
-      } catch (err) {
-        console.error("Failed to load posts:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPosts();
-  }, [userId]);
+  // 🚀 REACT QUERY: FETCH POSTS (Replaces useEffect)
+  const { data: posts = [], isLoading: loading } = useQuery({
+    queryKey: ['posts', userId],
+    queryFn: async () => {
+      const res = await api.get(`/api/profile/${userId}/posts`);
+      return res.data;
+    },
+    enabled: !!userId,
+  });
 
-  // Create Post Handler
-  const handleCreatePost = async (e) => {
+  // 🚀 REACT QUERY: CREATE POST MUTATION
+  const createPostMutation = useMutation({
+    mutationFn: (formData) => api.post("/api/posts/create", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+    onSuccess: () => {
+      // Refresh posts automatically
+      queryClient.invalidateQueries({ queryKey: ['posts', userId] });
+      setTitle("");
+      setDescription("");
+      setFile(null);
+      setIsCreatePostModalOpen(false); 
+      const fileInput = document.getElementById("fileInput");
+      if (fileInput) fileInput.value = "";
+    },
+    onError: (err) => {
+      console.error("Post create failed:", err);
+      alert(err.response?.data?.error || "Failed to create post");
+    }
+  });
+
+  // 🚀 REACT QUERY: DELETE POST MUTATION
+  const deletePostMutation = useMutation({
+    mutationFn: (postId) => api.delete(`/api/posts/${postId}`),
+    onSuccess: () => {
+      // Refresh posts automatically
+      queryClient.invalidateQueries({ queryKey: ['posts', userId] });
+      setPostToDelete(null); 
+    },
+    onError: (err) => {
+      console.error("Failed to delete post:", err);
+      alert("Failed to delete post. Please try again.");
+    }
+  });
+
+  const handleCreatePost = (e) => {
     e.preventDefault();
     if (!title.trim()) {
       alert("Title is required");
       return;
     }
-    setCreating(true);
-    try {
-      const formData = new FormData();
-      formData.append("title", title);
-      formData.append("description", description);
-      if (file) formData.append("file", file);
+    
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("description", description);
+    if (file) formData.append("file", file);
 
-      const res = await api.post("/api/posts/create", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setPosts((prev) => [res.data.post, ...prev]);
-      
-      // Reset Form & Close Modal
-      setTitle("");
-      setDescription("");
-      setFile(null);
-      setIsCreatePostModalOpen(false); 
-      
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput) fileInput.value = "";
-    } catch (err) {
-      console.error("Post create failed:", err);
-      alert(err.response?.data?.error || "Failed to create post");
-    } finally {
-      setCreating(false);
-    }
+    createPostMutation.mutate(formData);
   };
 
-  // 🟢 NEW: Updated Delete Logic
   const initiateDelete = (postId) => {
-    setPostToDelete(postId); // Opens the confirmation modal
+    setPostToDelete(postId);
   };
 
-  const confirmDelete = async () => {
-    if (!postToDelete) return;
-    setIsDeleting(true);
-    try {
-      await api.delete(`/api/posts/${postToDelete}`);
-      setPosts((prev) => prev.filter(p => p.id !== postToDelete));
-      setPostToDelete(null); // Close modal on success
-    } catch (err) {
-      console.error("Failed to delete post:", err);
-      alert("Failed to delete post. Please try again.");
-    } finally {
-      setIsDeleting(false);
+  const confirmDelete = () => {
+    if (postToDelete) {
+      deletePostMutation.mutate(postToDelete);
     }
   };
 
@@ -231,7 +227,7 @@ const UserPosts = ({ userId, isCurrentUser }) => {
                     </div>
                   </div>
                   
-                  {/* 🟢 Delete Button - Now triggers custom modal */}
+                  {/* Delete Button */}
                   {isCurrentUser && (
                     <button 
                       onClick={() => initiateDelete(post.id)}
@@ -272,7 +268,6 @@ const UserPosts = ({ userId, isCurrentUser }) => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             
-            {/* Modal Header */}
             <div className="flex justify-between items-center p-5 border-b border-slate-100 shrink-0">
               <h3 className="font-bold text-slate-800 text-lg">Create a Post</h3>
               <button 
@@ -283,7 +278,6 @@ const UserPosts = ({ userId, isCurrentUser }) => {
               </button>
             </div>
             
-            {/* Modal Form */}
             <form onSubmit={handleCreatePost} className="p-5 flex flex-col flex-1 overflow-y-auto no-scrollbar">
               <div className="space-y-4 flex-1">
                 <div>
@@ -308,7 +302,6 @@ const UserPosts = ({ userId, isCurrentUser }) => {
                   />
                 </div>
 
-                {/* File preview name if selected */}
                 {file && (
                   <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold w-max max-w-full">
                     <Image className="w-4 h-4 shrink-0" />
@@ -326,7 +319,6 @@ const UserPosts = ({ userId, isCurrentUser }) => {
 
               <div className="h-px bg-slate-100 w-full my-4 shrink-0"></div>
 
-              {/* Footer Actions */}
               <div className="flex items-center justify-between shrink-0">
                 <div className="flex items-center">
                   <label 
@@ -347,10 +339,10 @@ const UserPosts = ({ userId, isCurrentUser }) => {
 
                 <button
                   type="submit"
-                  disabled={creating || !title.trim()}
+                  disabled={createPostMutation.isPending || !title.trim()}
                   className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {creating ? "Posting..." : <><span className="hidden sm:inline">Post</span><Send className="w-3.5 h-3.5" /></>}
+                  {createPostMutation.isPending ? "Posting..." : <><span className="hidden sm:inline">Post</span><Send className="w-3.5 h-3.5" /></>}
                 </button>
               </div>
             </form>
@@ -377,17 +369,17 @@ const UserPosts = ({ userId, isCurrentUser }) => {
             <div className="flex gap-3">
               <button
                 onClick={() => setPostToDelete(null)}
-                disabled={isDeleting}
+                disabled={deletePostMutation.isPending}
                 className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                disabled={isDeleting}
+                disabled={deletePostMutation.isPending}
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md shadow-rose-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isDeleting ? "Deleting..." : "Delete"}
+                {deletePostMutation.isPending ? "Deleting..." : "Delete"}
               </button>
             </div>
 
