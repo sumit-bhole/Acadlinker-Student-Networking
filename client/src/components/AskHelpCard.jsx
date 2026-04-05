@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { HelpCircle, Upload, Github, X, FileText, ArrowRight, CheckCircle2, Clock } from "lucide-react";
+import { HelpCircle, Upload, Github, X, FileText, ArrowRight, CheckCircle2, Clock, Loader2 } from "lucide-react"; // ✅ Added Loader2 to imports
 import { helpService } from "../services/helpService";
 import CreatableSelect from 'react-select/creatable';
+import { useMutation, useQueryClient } from "@tanstack/react-query"; // 🚀 Added React Query
 
 import { SKILL_OPTIONS } from "../utils/constants";
 
@@ -16,13 +17,13 @@ const formatDateTime = (dateString) => {
   });
 };
 
-// 🟢 Select Dropdown Styles (Tinted for depth)
+// 🟢 Select Dropdown Styles
 const customSelectStyles = {
   control: (provided, state) => ({
     ...provided,
     borderRadius: '0.75rem',
     padding: '0.1rem 0.2rem',
-    backgroundColor: '#ffffff', // White input on slate background
+    backgroundColor: '#ffffff',
     borderColor: state.isFocused ? '#6366f1' : '#cbd5e1',
     boxShadow: state.isFocused ? '0 0 0 1px #6366f1' : 'none',
     fontSize: '0.875rem',
@@ -36,7 +37,7 @@ const customSelectStyles = {
 
 const AskHelpCard = ({ user, isOwner, onRefresh }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient(); // 🚀 React Query Client
   
   const activeRequest = user?.active_help_request;
 
@@ -48,21 +49,35 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
     image: null
   });
 
-  const handleSubmit = async (e) => {
+  // 🚀 REACT QUERY MUTATION
+  const createHelpMutation = useMutation({
+    mutationFn: (formData) => helpService.createRequest(formData),
+    onSuccess: () => {
+      setIsOpen(false);
+      setForm({ title: "", description: "", github_link: "", tags: [], image: null });
+      // Instantly refresh the profile query to show the new active request
+      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+      if (onRefresh) onRefresh(); // Fallback if still used elsewhere
+    },
+    onError: (error) => {
+      console.error(error);
+      alert(error.response?.data?.message || "Something went wrong saving your request.");
+    }
+  });
+
+  const handleSubmit = (e) => {
     e.preventDefault();
 
     if (!form.image) return alert("Please upload a screenshot of the error.");
     if (form.title.length < 20) return alert("Title must be at least 20 characters.");
     if (form.title.length > 80) return alert("Title cannot exceed 80 characters.");
 
-    setLoading(true);
-
     const formData = new FormData();
     formData.append("title", form.title);
     formData.append("description", form.description);
     formData.append("github_link", form.github_link || ""); 
     
-    // 🟢 CRASH FIX: Bulletproof tag parsing so React never throws a white screen
+    // 🟢 CRASH FIX
     let processedTags = "";
     if (Array.isArray(form.tags)) {
         processedTags = form.tags.map(t => t.value).join(", ");
@@ -70,25 +85,12 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
         processedTags = form.tags;
     }
     formData.append("tags", processedTags);
-    
     formData.append("image", form.image);
 
-    try {
-      await helpService.createRequest(formData);
-      setIsOpen(false);
-      setForm({ title: "", description: "", github_link: "", tags: [], image: null });
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error(error);
-      alert(error.response?.data?.message || "Something went wrong saving your request.");
-    } finally {
-      setLoading(false);
-    }
+    // 🚀 Trigger Mutation
+    createHelpMutation.mutate(formData);
   };
 
-  // ---------------------------------------------------------
-  // 🟢 STATE 1: ACTIVE PROBLEM CARD (Tinted Indigo/Slate)
-  // ---------------------------------------------------------
   if (activeRequest) {
     return (
       <div className="bg-indigo-50/30 border border-indigo-100 rounded-[24px] p-5 shadow-sm relative overflow-hidden group hover:shadow-md hover:bg-indigo-50/50 transition-all">
@@ -131,17 +133,11 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
     );
   }
 
-  // 🛑 SECURITY CHECK
   if (!isOwner) return null;
 
-  // ---------------------------------------------------------
-  // 🔵 STATE 2: FORM TRIGGER (Redesigned Light Indigo Tint)
-  // ---------------------------------------------------------
   return (
     <>
-      {/* 🟢 NEW: Soft Light-Indigo background to make it pop beautifully */}
       <div className="bg-indigo-50/60 border border-indigo-100 rounded-[20px] p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden">
-        {/* Subtle decorative glow in the corner */}
         <div className="absolute -right-10 -top-10 w-32 h-32 bg-indigo-200/40 rounded-full blur-2xl"></div>
         
         <div className="flex items-center gap-4 text-left w-full sm:w-auto relative z-10">
@@ -164,12 +160,10 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
         </button>
       </div>
 
-      {/* 🟢 MODAL FORM (Layered depth) - Unchanged */}
       {isOpen && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[110] p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-50 rounded-[24px] w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
             
-            {/* Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 flex justify-between items-center bg-slate-100 shrink-0">
               <div>
                   <h2 className="text-lg font-extrabold text-slate-900 leading-none mb-1">Post a Request</h2>
@@ -180,11 +174,9 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
               </button>
             </div>
 
-            {/* Scrollable Form Body */}
             <div className="overflow-y-auto custom-scrollbar p-4 sm:p-6">
               <form id="help-form" onSubmit={handleSubmit} className="space-y-5">
                 
-                {/* 1. SCREENSHOT */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                       Screenshot <span className="text-rose-500">*</span>
@@ -204,7 +196,6 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
                   </div>
                 </div>
 
-                {/* 2. TITLE */}
                 <div>
                   <div className="flex justify-between items-end mb-1.5">
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -224,7 +215,6 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
                   <p className="text-[9px] text-slate-400 font-medium mt-1 ml-1">Must be between 20 and 80 characters.</p>
                 </div>
 
-                {/* 3. TECH STACK */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                     Tech Stack <span className="text-rose-500">*</span>
@@ -241,7 +231,6 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
                   />
                 </div>
 
-                {/* 4. GITHUB */}
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">GitHub Link</label>
@@ -261,7 +250,6 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
                   </div>
                 </div>
 
-                {/* 5. DESCRIPTION */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                     Brief Description <span className="text-rose-500">*</span>
@@ -277,13 +265,12 @@ const AskHelpCard = ({ user, isOwner, onRefresh }) => {
               </form>
             </div>
 
-            {/* Sticky Footer Button */}
             <div className="p-4 border-t border-slate-200 bg-slate-100 shrink-0">
               <button
-                type="submit" form="help-form" disabled={loading}
+                type="submit" form="help-form" disabled={createHelpMutation.isPending}
                 className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-extrabold rounded-xl shadow-md shadow-indigo-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit Request"}
+                {createHelpMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Submit Request"}
               </button>
             </div>
 

@@ -1,37 +1,34 @@
-import React, { useEffect, useState } from "react";
-import api from "../api/axios";
+import React, { useState, Suspense, lazy } from "react";
 import { Link } from "react-router-dom";
-import { 
-  Loader2, 
-  Heart, 
-  Bookmark,
-  X // 🟢 Added X for the modal close button
-} from "lucide-react";
+import { Heart, Bookmark, X } from "lucide-react";
 import GithubCard from "../components/GithubCard";
-import HelpFeedWidget from "../components/HelpFeedWidget";
-import LeftSidebar from "../components/LeftSidebar"; 
+import { useHomeFeed } from "../hooks/useFeeds"; // 🚀 Import new hook
+
+// 🚀 LAZY LOAD SIDEBARS (Does not block main feed rendering)
+const LeftSidebar = lazy(() => import("../components/LeftSidebar"));
+const HelpFeedWidget = lazy(() => import("../components/HelpFeedWidget"));
+
+// 🦴 SKELETON LOADER (Prevents Layout Shift)
+const PostSkeleton = () => (
+  <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-6 shadow-sm animate-pulse">
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-11 h-11 bg-slate-200 rounded-full"></div>
+      <div className="flex flex-col gap-2">
+        <div className="w-32 h-3 bg-slate-200 rounded-full"></div>
+        <div className="w-20 h-2 bg-slate-100 rounded-full"></div>
+      </div>
+    </div>
+    <div className="w-full h-4 bg-slate-200 rounded-full mb-2"></div>
+    <div className="w-3/4 h-4 bg-slate-200 rounded-full mb-4"></div>
+    <div className="w-full h-64 bg-slate-100 rounded-xl"></div>
+  </div>
+);
 
 const Home = () => {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // 🚀 REACT QUERY: Automatic caching, deduplication, and loading states
+  const { data: posts = [], isLoading: loading } = useHomeFeed();
   
-  // 🟢 NEW: State to track which image is currently expanded in the lightbox
   const [expandedImage, setExpandedImage] = useState(null);
-
-  const fetchHomeFeed = async () => {
-    try {
-      const res = await api.get("/api/posts/home");
-      setPosts(res.data);
-    } catch (err) {
-      console.error("Error loading feed:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHomeFeed();
-  }, []);
 
   const getGithubUrl = (text) => {
     if (!text) return null;
@@ -43,17 +40,13 @@ const Home = () => {
     if (!dateString) return "Just now";
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
       });
     } catch (e) {
       return "Recently";
     }
   };
 
-  // 🟢 NEW: Helper function for initials
   const getInitials = (name) => {
     if (!name || name === "Unknown User") return "?";
     return name.charAt(0).toUpperCase();
@@ -66,7 +59,6 @@ const Home = () => {
 
     if (isImage) {
       return (
-        // 🟢 CHANGED: Fixed height (h-64 sm:h-80), object-cover, and onClick handler for modal
         <div 
           className="w-full bg-slate-100 border-y border-slate-100 cursor-pointer group overflow-hidden relative"
           onClick={() => setExpandedImage(url)}
@@ -74,9 +66,10 @@ const Home = () => {
           <img 
             src={url} 
             alt="Post attachment" 
+            loading="lazy" // 🚀 BROWSER OPTIMIZATION: Defers off-screen images
+            decoding="async" 
             className="w-full h-64 sm:h-80 object-cover group-hover:scale-105 transition-transform duration-500" 
           />
-          {/* Subtle overlay hint */}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
         </div>
       );
@@ -84,15 +77,8 @@ const Home = () => {
 
     return (
       <div className="px-4 pb-2">
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-3 p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl text-indigo-700 hover:bg-indigo-50 transition-colors group"
-        >
-          <div className="p-2 bg-white rounded-lg shadow-sm group-hover:scale-110 transition-transform">
-            📎
-          </div>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-3 p-3 bg-indigo-50/50 border border-indigo-100/50 rounded-xl text-indigo-700 hover:bg-indigo-50 transition-colors group">
+          <div className="p-2 bg-white rounded-lg shadow-sm group-hover:scale-110 transition-transform">📎</div>
           <span className="font-medium">Download Attachment</span>
         </a>
       </div>
@@ -104,19 +90,20 @@ const Home = () => {
       <div className="w-full px-4 lg:pl-0 lg:pr-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6">
 
-          {/* =======================
-              LEFT COLUMN
-              ======================= */}
-          <LeftSidebar />
+          {/* ======================= LEFT COLUMN ======================= */}
+          {/* 🚀 SUSPENSE: Fallback UI while bundle loads */}
+          <Suspense fallback={<div className="hidden lg:block lg:col-span-3 h-full"><div className="sticky top-16 h-[calc(100vh-4rem)] animate-pulse border-r border-slate-200 bg-slate-50"></div></div>}>
+            <LeftSidebar />
+          </Suspense>
 
-          {/* =======================
-              CENTER COLUMN (Main Feed)
-              ======================= */}
+          {/* ======================= CENTER COLUMN ======================= */}
           <div className="lg:col-span-6 space-y-6 sm:space-y-8 max-w-[600px] mx-auto w-full pt-8 lg:pt-10">
+            
             {loading && (
-              <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
-              </div>
+              <>
+                <PostSkeleton />
+                <PostSkeleton />
+              </>
             )}
 
             {!loading && posts.length === 0 && (
@@ -143,21 +130,17 @@ const Home = () => {
 
               return (
                 <div key={post.id} className="bg-white sm:rounded-2xl border-y sm:border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
-                  
                   <div className="p-3 sm:p-4 flex items-center justify-between border-b border-slate-50">
                     <div className="flex items-center gap-3">
-                      
-                      {/* 🟢 CHANGED: Render Initials if no custom DP is found */}
                       <Link to={`/profile/${userId}`} className="shrink-0">
-                        {userPic && userPic !== "/default-profile.png" ? (
-                          <img src={userPic} alt={userName} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border border-slate-100 p-[2px] ring-2 ring-transparent hover:ring-indigo-400 transition-all" />
+                        {userPic && !userPic.includes("default") ? (
+                          <img src={userPic} loading="lazy" alt={userName} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border border-slate-100 p-[2px] ring-2 ring-transparent hover:ring-indigo-400 transition-all" />
                         ) : (
                           <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-slate-100 p-[2px] ring-2 ring-transparent hover:ring-indigo-400 transition-all bg-indigo-50 flex items-center justify-center">
                             <span className="text-sm sm:text-base font-black text-indigo-400">{getInitials(userName)}</span>
                           </div>
                         )}
                       </Link>
-
                       <div className="flex flex-col">
                         <Link to={`/profile/${userId}`} className="font-bold text-slate-900 hover:text-indigo-600 transition-colors text-sm sm:text-base">
                           {userName}
@@ -197,58 +180,31 @@ const Home = () => {
             })}
           </div>
 
-          {/* =======================
-              RIGHT COLUMN
-              ======================= */}
+          {/* ======================= RIGHT COLUMN ======================= */}
           <div className="hidden lg:block lg:col-span-3 sticky top-16 h-[calc(100vh-4rem)] overflow-hidden pt-8 pb-8">
             <div className="space-y-6">
               <div className="relative z-10 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <HelpFeedWidget />
+                <Suspense fallback={<div className="h-[300px] w-full bg-slate-100 animate-pulse"></div>}>
+                  <HelpFeedWidget />
+                </Suspense>
               </div>
             </div>
           </div>
 
         </div>
       </div>
-      
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
 
-      {/* ========================================================= */}
-      {/* 🟢 LIGHTBOX MODAL FOR FULL IMAGES */}
-      {/* ========================================================= */}
+      {/* Lightbox Modal */}
       {expandedImage && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-zoom-out"
-          onClick={() => setExpandedImage(null)}
-        >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-zoom-out" onClick={() => setExpandedImage(null)}>
           <div className="relative max-w-5xl w-full max-h-[90vh] flex items-center justify-center">
-            {/* Close button */}
-            <button 
-              onClick={(e) => { e.stopPropagation(); setExpandedImage(null); }}
-              className="absolute -top-12 right-0 text-white hover:text-slate-300 p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-full transition-colors backdrop-blur-md"
-            >
+            <button onClick={(e) => { e.stopPropagation(); setExpandedImage(null); }} className="absolute -top-12 right-0 text-white hover:text-slate-300 p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-full transition-colors backdrop-blur-md">
               <X size={24} />
             </button>
-            
-            {/* Image */}
-            <img 
-              src={expandedImage} 
-              alt="Expanded post" 
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 cursor-default" 
-              onClick={(e) => e.stopPropagation()} // Prevent clicking image from closing the modal
-            />
+            <img src={expandedImage} alt="Expanded post" loading="lazy" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 cursor-default" onClick={(e) => e.stopPropagation()} />
           </div>
         </div>
       )}
-
     </div>
   );
 };

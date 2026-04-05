@@ -1,43 +1,51 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../api/axios";
 
 export const useFriends = () => {
-  const [friends, setFriends] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    api.get("/api/friends/list")
-      .then((res) => setFriends(res.data))
-      .catch((err) => console.log("Failed to fetch friends", err))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: friends = [], isLoading: loading } = useQuery({
+    queryKey: ['friends'],
+    queryFn: async () => {
+      const res = await api.get("/api/friends/list");
+      return res.data;
+    },
+    // ✅ OVERRIDE: We WANT this to refetch when the user focuses the tab for live updates
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider chat data stale to ensure freshness
+  });
+
+  // ✅ Backwards compatibility: Allows UI to manually update the cache just like useState
+  const setFriends = (updater) => {
+    queryClient.setQueryData(['friends'], (oldData) => {
+      return typeof updater === 'function' ? updater(oldData || []) : updater;
+    });
+  };
 
   return { friends, loading, setFriends };
 };
 
 export const useMessages = (friendId) => {
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const loadMessages = useCallback(async (id) => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const res = await api.get(`/api/messages/chat/${id}`);
-      setMessages(res.data.messages || []);
-    } catch (err) {
-      console.error("Failed to load chat history:", err);
-      setMessages([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: messages = [], isLoading: loading, refetch: loadMessages } = useQuery({
+    queryKey: ['messages', friendId],
+    queryFn: async () => {
+      const res = await api.get(`/api/messages/chat/${friendId}`);
+      return res.data.messages || [];
+    },
+    enabled: !!friendId, // Won't run until friendId exists
+    // ✅ OVERRIDE: Automatically grab new messages when tab is focused
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
 
-  useEffect(() => {
-    if (friendId) {
-      loadMessages(friendId);
-    }
-  }, [friendId, loadMessages]);
+  // ✅ Backwards compatibility: Allows UI to manually update the cache just like useState
+  const setMessages = (updater) => {
+    queryClient.setQueryData(['messages', friendId], (oldData) => {
+      return typeof updater === 'function' ? updater(oldData || []) : updater;
+    });
+  };
 
   return { messages, loading, setMessages, loadMessages };
 };

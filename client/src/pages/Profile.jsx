@@ -4,7 +4,6 @@ import UserPosts from "../components/UserPosts";
 import ProfileSidebar from "../components/ProfileSidebar"; 
 import { useParams, Link } from "react-router-dom";
 import AskHelpCard from "../components/AskHelpCard";
-import api from "../api/axios";
 import CreatableSelect from 'react-select/creatable';
 import {
   FaCheck,
@@ -16,8 +15,9 @@ import {
 import { FiClock } from "react-icons/fi";
 import { Mail, Phone, MapPin, X } from "lucide-react";
 
-// 🟢 IMPORT YOUR NEW CONSTANTS HERE
+// 🟢 IMPORT YOUR NEW CONSTANTS AND HOOKS HERE
 import { SKILL_OPTIONS, LOCATION_OPTIONS, EDUCATION_OPTIONS } from "../utils/constants"; 
+import { useProfileQuery, useUpdateProfileMutation, useFriendActionsMutation } from "../hooks/useProfile";
 
 // --- STYLES ---
 const customSelectStyles = {
@@ -52,12 +52,13 @@ const customSelectStyles = {
 };
 
 const Profile = () => {
-  const { currentUser, refreshUser } = useAuth();
+  const { currentUser } = useAuth();
   const { userId } = useParams();
 
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [processingAction, setProcessingAction] = useState(false);
+  // 🚀 REACT QUERY MAGIC: Replaces useEffect, loading state, and user state
+  const { data: user, isLoading: loading } = useProfileQuery(userId);
+  const updateProfileMutation = useUpdateProfileMutation(userId);
+  const { sendRequest, acceptRequest, rejectRequest } = useFriendActionsMutation(userId);
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
@@ -74,97 +75,50 @@ const Profile = () => {
 
   const isCurrentUser = currentUser && String(currentUser.id) === String(userId);
 
-  const fetchUserData = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get(`/api/profile/${userId}`);
-      setUser(res.data);
-      setEditForm({
-        full_name: res.data.full_name || '',
-        location: res.data.location || '',
-        description: res.data.description || '',
-        skills: res.data.skills || '',
-        email: res.data.email || '',
-        mobile_no: res.data.mobile_no || '', 
-        education: res.data.education || '',
-        website: res.data.website || ''
-      });
-    } catch (err) {
-      console.error("Profile fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Sync form data automatically when React Query fetches the user data
   useEffect(() => {
-    if (userId) {
-      fetchUserData();
+    if (user) {
+      setEditForm({
+        full_name: user.full_name || '',
+        location: user.location || '',
+        description: user.description || '',
+        skills: user.skills || '',
+        email: user.email || '',
+        mobile_no: user.mobile_no || '', 
+        education: user.education || '',
+        website: user.website || ''
+      });
     }
-  }, [userId]);
+  }, [user]);
 
-  const sendFriendRequest = async () => {
-    try {
-      setProcessingAction(true);
-      await api.post(`/api/friends/send/${user.id}`);
-      await fetchUserData();
-    } catch (err) {
-      console.error("Failed to send request", err);
-    } finally {
-      setProcessingAction(false);
-    }
-  };
-
-  const acceptFriendRequest = async () => {
-    try {
-      setProcessingAction(true);
-      await api.post(`/api/friends/accept/${user.request_id}`);
-      await fetchUserData();
-    } catch (err) {
-      console.error("Failed to accept request", err);
-    } finally {
-      setProcessingAction(false);
-    }
-  };
-
-  const rejectFriendRequest = async () => {
-    try {
-      setProcessingAction(true);
-      await api.post(`/api/friends/reject/${user.request_id}`);
-      await fetchUserData();
-    } catch (err) {
-      console.error("Failed to reject request", err);
-    } finally {
-      setProcessingAction(false);
-    }
-  };
+  // Consolidate processing state for UI disable logic
+  const isProcessing = 
+    updateProfileMutation.isPending || 
+    sendRequest.isPending || 
+    acceptRequest.isPending || 
+    rejectRequest.isPending;
 
   const handleEditChange = (e) => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
-  const submitProfileUpdate = async (e) => {
+  const submitProfileUpdate = (e) => {
     e?.preventDefault();
     const data = new FormData();
     
     Object.entries(editForm).forEach(([key, value]) => {
-        data.append(key, value || ""); 
+      data.append(key, value || ""); 
     });
 
-    try {
-      setProcessingAction(true);
-      await api.patch('/api/profile/edit', data);
-      await refreshUser(); 
-      await fetchUserData(); 
-      setIsBasicInfoModalOpen(false);
-      setIsSkillsModalOpen(false);
-      setIsDetailsModalOpen(false);
-      setIsEditingContact(false);
-    } catch (err) {
-      console.error("Profile update error:", err);
-      alert("Failed to update profile.");
-    } finally {
-      setProcessingAction(false);
-    }
+    updateProfileMutation.mutate(data, {
+      onSuccess: () => {
+        setIsBasicInfoModalOpen(false);
+        setIsSkillsModalOpen(false);
+        setIsDetailsModalOpen(false);
+        setIsEditingContact(false);
+      },
+      onError: () => alert("Failed to update profile.")
+    });
   };
 
   const handleAvatarFileSelect = (e) => {
@@ -182,7 +136,7 @@ const Profile = () => {
     setIsAvatarRemoved(true);
   };
 
-  const saveAvatarChanges = async () => {
+  const saveAvatarChanges = () => {
     const data = new FormData();
     
     if (tempAvatarFile) {
@@ -199,18 +153,10 @@ const Profile = () => {
       data.append(key, value || ""); 
     });
 
-    try {
-      setProcessingAction(true);
-      await api.patch('/api/profile/edit', data);
-      await refreshUser();
-      await fetchUserData();
-      setIsAvatarModalOpen(false);
-    } catch (err) {
-      console.error("Avatar update error:", err);
-      alert("Failed to update picture.");
-    } finally {
-      setProcessingAction(false);
-    }
+    updateProfileMutation.mutate(data, {
+      onSuccess: () => setIsAvatarModalOpen(false),
+      onError: () => alert("Failed to update picture.")
+    });
   };
 
   const renderFriendButton = () => {
@@ -229,7 +175,7 @@ const Profile = () => {
     if (user.request_sent) {
       return (
         <button className={`${base} bg-slate-50 text-slate-500 border border-slate-200 cursor-not-allowed`} disabled>
-          <FiClock /> {processingAction ? "Processing..." : "Sent"}
+          <FiClock /> {isProcessing ? "Processing..." : "Sent"}
         </button>
       );
     }
@@ -237,10 +183,10 @@ const Profile = () => {
     if (user.request_received) {
       return (
         <div className="flex gap-2">
-          <button onClick={acceptFriendRequest} disabled={processingAction} className={`${base} bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 px-4`}>
-            {processingAction ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <><FaCheck /> Accept</>}
+          <button onClick={() => acceptRequest.mutate(user.request_id)} disabled={isProcessing} className={`${base} bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 px-4`}>
+            {acceptRequest.isPending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <><FaCheck /> Accept</>}
           </button>
-          <button onClick={rejectFriendRequest} disabled={processingAction} className={`${base} bg-white text-rose-600 border border-rose-200 hover:bg-rose-50 px-4`}>
+          <button onClick={() => rejectRequest.mutate(user.request_id)} disabled={isProcessing} className={`${base} bg-white text-rose-600 border border-rose-200 hover:bg-rose-50 px-4`}>
             Reject
           </button>
         </div>
@@ -248,8 +194,8 @@ const Profile = () => {
     }
 
     return (
-      <button onClick={sendFriendRequest} disabled={processingAction} className={`${base} bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 shadow-indigo-200 shadow-md`}>
-        {processingAction ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <><FaPlus /> Connect</>}
+      <button onClick={() => sendRequest.mutate(user.id)} disabled={isProcessing} className={`${base} bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 shadow-indigo-200 shadow-md`}>
+        {sendRequest.isPending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <><FaPlus /> Connect</>}
       </button>
     );
   };
@@ -323,7 +269,8 @@ const Profile = () => {
           <div className="flex-1 w-full md:w-auto h-auto md:h-[calc(100vh-4rem)] md:overflow-y-auto no-scrollbar py-8 px-4 lg:px-8 max-w-4xl mx-auto">
              
              <div className="mb-8">
-                <AskHelpCard user={user} isOwner={isCurrentUser} onRefresh={fetchUserData} />
+                {/* Note: I removed onRefresh here, as AskHelpCard should ideally use React Query itself to refetch data! */}
+                <AskHelpCard user={user} isOwner={isCurrentUser} />
              </div>
             
              <div className="mb-6 border-b border-slate-200 pb-4">
@@ -390,14 +337,14 @@ const Profile = () => {
               <div className="flex gap-3 w-full mb-4">
                 <label className="flex-1 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-xl text-center cursor-pointer hover:bg-indigo-100 transition">
                   Change DP
-                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarFileSelect} disabled={processingAction}/>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarFileSelect} disabled={isProcessing}/>
                 </label>
-                <button onClick={handleAvatarRemovePreview} disabled={processingAction} className="flex-1 py-3 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition flex items-center justify-center gap-2">
+                <button onClick={handleAvatarRemovePreview} disabled={isProcessing} className="flex-1 py-3 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition flex items-center justify-center gap-2">
                   <FaTrash className="text-sm"/> Remove
                 </button>
               </div>
-              <button onClick={saveAvatarChanges} disabled={processingAction || (!tempAvatarFile && !isAvatarRemoved)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-50">
-                {processingAction ? "Saving..." : "Save Changes"}
+              <button onClick={saveAvatarChanges} disabled={isProcessing || (!tempAvatarFile && !isAvatarRemoved)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-50">
+                {isProcessing ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -436,8 +383,8 @@ const Profile = () => {
                 />
               </div>
               
-              <button type="submit" disabled={processingAction} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
-                {processingAction ? "Saving..." : "Save Changes"}
+              <button type="submit" disabled={isProcessing} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
+                {isProcessing ? "Saving..." : "Save Changes"}
               </button>
             </form>
           </div>
@@ -468,8 +415,8 @@ const Profile = () => {
                 />
               </div>
               
-              <button type="submit" disabled={processingAction} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
-                {processingAction ? "Saving..." : "Save Changes"}
+              <button type="submit" disabled={isProcessing} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
+                {isProcessing ? "Saving..." : "Save Changes"}
               </button>
             </form>
           </div>
@@ -504,8 +451,8 @@ const Profile = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Website URL</label>
                 <input type="url" name="website" value={editForm.website} onChange={handleEditChange} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="https://yourwebsite.com" />
               </div>
-              <button type="submit" disabled={processingAction} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
-                {processingAction ? "Saving..." : "Save Changes"}
+              <button type="submit" disabled={isProcessing} className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
+                {isProcessing ? "Saving..." : "Save Changes"}
               </button>
             </form>
           </div>
@@ -527,7 +474,7 @@ const Profile = () => {
             </div>
             
             {isEditingContact ? (
-              <form onSubmit={(e) => { submitProfileUpdate(e).then(() => setIsEditingContact(false)); }} className="p-6 space-y-4">
+              <form onSubmit={(e) => { submitProfileUpdate(e); }} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Email</label>
                   <input type="email" name="email" value={editForm.email} readOnly className="w-full border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 text-slate-500 cursor-not-allowed outline-none" title="Email cannot be changed here" />
@@ -538,8 +485,8 @@ const Profile = () => {
                 </div>
                 <div className="flex gap-3 mt-4">
                   <button type="button" onClick={() => setIsEditingContact(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">Cancel</button>
-                  <button type="submit" disabled={processingAction} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
-                    {processingAction ? "Saving..." : "Save"}
+                  <button type="submit" disabled={isProcessing} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md shadow-indigo-200 disabled:opacity-70">
+                    {isProcessing ? "Saving..." : "Save"}
                   </button>
                 </div>
               </form>
