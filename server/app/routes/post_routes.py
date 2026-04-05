@@ -1,19 +1,20 @@
 from flask import Blueprint
-# 1. REMOVE: from flask_login import login_required
-# 2. ADD: Import your new Supabase middleware
 from app.middleware.auth_middleware import token_required
 
 from app.controllers.post_controller import (
     create_new_post, 
-    get_current_user_posts, 
+    get_current_user_posts, # Note: Make sure this is still defined in your post_controller.py!
     get_home_feed_posts,
-    delete_post # 🟢 ADDED: Imported the delete function
+    delete_post,
+    get_saved_posts,        # 🟢 ADDED
+    toggle_like,            # 🟢 ADDED
+    toggle_save             # 🟢 ADDED
 )
 
 posts_bp = Blueprint("posts", __name__, url_prefix='/api/posts')
 
 # -------------------------------------------------
-# Routes (All use @token_required now)
+# Routes (All use @token_required)
 # -------------------------------------------------
 
 @posts_bp.route("/create", methods=["POST"])
@@ -31,7 +32,25 @@ def user_posts():
 def home_feed():
     return get_home_feed_posts()
 
-# 🟢 ADDED: Delete Post Route
+# 🟢 ADDED: Get Saved Posts
+@posts_bp.route("/saved", methods=["GET"])
+@token_required
+def saved_posts_route():
+    return get_saved_posts()
+
+# 🟢 ADDED: Toggle Like
+@posts_bp.route("/<int:post_id>/like", methods=["POST"])
+@token_required
+def like_post_route(post_id):
+    return toggle_like(post_id)
+
+# 🟢 ADDED: Toggle Save (Bookmark)
+@posts_bp.route("/<int:post_id>/save", methods=["POST"])
+@token_required
+def save_post_route(post_id):
+    return toggle_save(post_id)
+
+# Delete Post Route
 @posts_bp.route("/<int:post_id>", methods=["DELETE"])
 @token_required
 def delete_post_route(post_id):
