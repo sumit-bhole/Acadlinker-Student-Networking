@@ -154,17 +154,23 @@ const PostCard = ({ post, onExpandImage }) => {
       <div className="px-3 sm:px-4 py-3 flex items-center justify-between border-t border-slate-50 mt-1">
         <div className="flex items-center gap-5">
           {/* LIKE BUTTON */}
-          <button 
-            onClick={() => handleLikeAction(false)}
-            className="flex items-center gap-1.5 group active:scale-95 transition-transform"
-          >
-            <Heart 
-              className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${post.is_liked ? "fill-pink-500 text-pink-500" : "text-slate-600 group-hover:text-pink-500"}`} 
-            />
-            <span className={`font-semibold text-sm transition-colors ${post.is_liked ? "text-pink-500" : "text-slate-600 group-hover:text-pink-500"}`}>
-              {post.likes_count}
-            </span>
-          </button>
+          {/* LIKE BUTTON */}
+<button 
+  onClick={() => handleLikeAction(false)}
+  className="flex items-center gap-1.5 group active:scale-95 transition-transform"
+>
+  <Heart 
+    className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${
+      post.is_liked ? "fill-pink-500 text-pink-500" : "text-slate-600 group-hover:text-pink-500"
+    }`} 
+  />
+  {/* Added a fallback and ensured 0 is rendered */}
+  <span className={`font-semibold text-sm transition-colors ${
+    post.is_liked ? "text-pink-500" : "text-slate-600 group-hover:text-pink-500"
+  }`}>
+    {post.likes_count || 0}
+  </span>
+</button>
         </div>
         
         {/* SAVE BUTTON (Instant Unsave included via React Query Rollback) */}

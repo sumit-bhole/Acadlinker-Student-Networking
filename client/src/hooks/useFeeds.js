@@ -13,7 +13,6 @@ export const useHomeFeed = () => {
       return res.data;
     },
     getNextPageParam: (lastPage, allPages) => {
-      // If the backend says there are more pages, fetch the next one
       return lastPage.has_more ? allPages.length + 1 : undefined;
     },
     staleTime: 2 * 60 * 1000, 
@@ -21,7 +20,21 @@ export const useHomeFeed = () => {
 };
 
 // -------------------------------------------------
-// 2. OPTIMISTIC MUTATIONS (Likes & Saves)
+// 2. SAVED POSTS
+// -------------------------------------------------
+export const useSavedPosts = () => {
+  return useQuery({
+    queryKey: ['savedPosts'],
+    queryFn: async () => {
+      const res = await api.get('/api/posts/saved');
+      return res.data;
+    },
+    staleTime: 0, // Always fetch fresh list when navigating to the page
+  });
+};
+
+// -------------------------------------------------
+// 3. OPTIMISTIC MUTATIONS (Global Sync)
 // -------------------------------------------------
 export const useToggleLike = () => {
   const queryClient = useQueryClient();
@@ -29,39 +42,47 @@ export const useToggleLike = () => {
   return useMutation({
     mutationFn: (postId) => api.post(`/api/posts/${postId}/like`),
     onMutate: async (postId) => {
+      // 1. Cancel all outgoing requests so they don't overwrite our optimistic update
       await queryClient.cancelQueries({ queryKey: ['homeFeed'] });
-      const previousData = queryClient.getQueryData(['homeFeed']);
+      await queryClient.cancelQueries({ queryKey: ['savedPosts'] });
+      await queryClient.cancelQueries({ queryKey: ['posts'] });
 
-      // Optimistically update the cache
-      queryClient.setQueryData(['homeFeed'], (oldData) => {
+      // Helper for standard array feeds (Saved & Profile)
+      const toggleLikeInList = (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.map(post =>
+          post.id === postId ? {
+            ...post,
+            is_liked: !post.is_liked,
+            likes_count: post.is_liked ? post.likes_count - 1 : post.likes_count + 1
+          } : post
+        );
+      };
+
+      // Helper for infinite scroll feeds (Home)
+      const toggleLikeInInfinite = (oldData) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map(page => ({
             ...page,
-            posts: page.posts.map(post => {
-              if (post.id === postId) {
-                return {
-                  ...post,
-                  is_liked: !post.is_liked,
-                  likes_count: post.is_liked ? post.likes_count - 1 : post.likes_count + 1
-                };
-              }
-              return post;
-            })
+            posts: toggleLikeInList(page.posts)
           }))
         };
-      });
+      };
 
-      return { previousData };
+      // 2. Instantly update ALL feeds anywhere in the app simultaneously
+      queryClient.setQueriesData({ queryKey: ['homeFeed'] }, toggleLikeInInfinite);
+      queryClient.setQueriesData({ queryKey: ['savedPosts'] }, toggleLikeInList);
+      queryClient.setQueriesData({ queryKey: ['posts'] }, toggleLikeInList); // Matches all profile feeds
+
+      return { postId };
     },
-    onError: (err, postId, context) => {
-      // Rollback on failure
-      queryClient.setQueryData(['homeFeed'], context.previousData);
-    },
-    onSettled: () => {
-      // Ensure absolute sync in background
+    onError: () => {
+      // If the API fails, invalidate everything to force a sync with the truth
       queryClient.invalidateQueries({ queryKey: ['homeFeed'] });
+      queryClient.invalidateQueries({ queryKey: ['savedPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
     }
   });
 };
@@ -73,34 +94,48 @@ export const useToggleSave = () => {
     mutationFn: (postId) => api.post(`/api/posts/${postId}/save`),
     onMutate: async (postId) => {
       await queryClient.cancelQueries({ queryKey: ['homeFeed'] });
-      const previousData = queryClient.getQueryData(['homeFeed']);
+      await queryClient.cancelQueries({ queryKey: ['savedPosts'] });
+      await queryClient.cancelQueries({ queryKey: ['posts'] });
 
-      queryClient.setQueryData(['homeFeed'], (oldData) => {
+      // Notice we DO NOT delete the post from the array!
+      // We only toggle the boolean. This creates the "Instagram Effect" where it stays on screen.
+      const toggleSaveInList = (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.map(post =>
+          post.id === postId ? { ...post, is_saved: !post.is_saved } : post
+        );
+      };
+
+      const toggleSaveInInfinite = (oldData) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map(page => ({
             ...page,
-            posts: page.posts.map(post => 
-              post.id === postId ? { ...post, is_saved: !post.is_saved } : post
-            )
+            posts: toggleSaveInList(page.posts)
           }))
         };
-      });
+      };
 
-      return { previousData };
+      // Instantly update ALL feeds globally
+      queryClient.setQueriesData({ queryKey: ['homeFeed'] }, toggleSaveInInfinite);
+      queryClient.setQueriesData({ queryKey: ['savedPosts'] }, toggleSaveInList);
+      queryClient.setQueriesData({ queryKey: ['posts'] }, toggleSaveInList);
+
+      return { postId };
     },
-    onError: (err, postId, context) => {
-      queryClient.setQueryData(['homeFeed'], context.previousData);
-    },
-    onSettled: () => {
+    onError: () => {
       queryClient.invalidateQueries({ queryKey: ['homeFeed'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ['savedPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    },
+    // CRITICAL FIX: We purposely DO NOT include an `onSettled` block here. 
+    // If we invalidated the query after saving/unsaving, the UI would refresh instantly and the post would vanish!
   });
 };
 
 // -------------------------------------------------
-// 3. WIDGETS & SIDEBARS
+// 4. WIDGETS & SIDEBARS
 // -------------------------------------------------
 export const useHelpFeed = () => {
   return useQuery({
@@ -119,17 +154,5 @@ export const useSidebarProfile = (userId) => {
     },
     enabled: !!userId,
     staleTime: 10 * 60 * 1000,
-  });
-};
-
-// Add this at the bottom of useFeeds.js
-export const useSavedPosts = () => {
-  return useQuery({
-    queryKey: ['savedPosts'],
-    queryFn: async () => {
-      const res = await api.get('/api/posts/saved');
-      return res.data;
-    },
-    staleTime: 2 * 60 * 1000, 
   });
 };
