@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { useOutletContext, Link } from "react-router-dom";
 import { 
-  Github, CheckCircle, ArrowRight, UserPlus, Settings, 
+  Github, CheckCircle, ArrowRight, UserPlus, 
   GitBranch, Star, AlertCircle, Edit2, X, GitCommit, MessageSquare, Users 
 } from "lucide-react";
 import EditTeamModal from "../../components/Teams/EditTeamModal";
 import InviteModal from "../../components/Teams/InviteModal";
 import { joinRequest, respondToRequest } from "../../api/teamApi"; 
+
+// 🚀 HELPER: Safely format image URLs (Handles both Cloudinary and Local Uploads)
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
+    return url;
+  }
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  return `${baseUrl}/static/uploads/${url}`;
+};
 
 const TeamDashboard = () => {
   const { team, isLeader } = useOutletContext(); 
@@ -17,9 +27,19 @@ const TeamDashboard = () => {
   const [joinMsg, setJoinMsg] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   
+  // State to handle image loading errors
+  const [imageErrorNonMember, setImageErrorNonMember] = useState(false);
+  const [imageErrorMember, setImageErrorMember] = useState(false);
+
   // GitHub State
   const [repoData, setRepoData] = useState(null);
   const [lastCommit, setLastCommit] = useState(null);
+
+  // Reset image errors if the team data changes
+  useEffect(() => {
+    setImageErrorNonMember(false);
+    setImageErrorMember(false);
+  }, [team?.profile_pic]);
 
   // Fetch GitHub Stats
   useEffect(() => {
@@ -58,8 +78,11 @@ const TeamDashboard = () => {
 
   if (!team) return <div className="p-10 text-center">Loading Team Data...</div>;
 
+  // Process the team profile picture URL safely
+  const teamPicUrl = getImageUrl(team.profile_pic);
+
   // =========================================================
-  // 1. NON-MEMBER VIEW (Redesigned with TextArea)
+  // 1. NON-MEMBER VIEW
   // =========================================================
   if (!team.is_member) {
     return (
@@ -69,11 +92,18 @@ const TeamDashboard = () => {
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-32"></div>
           <div className="px-8 pb-8 text-center relative">
-            <div className="w-24 h-24 bg-white rounded-3xl mx-auto -mt-12 flex items-center justify-center text-indigo-600 font-black text-4xl shadow-lg border-4 border-white">
-              {team.profile_pic ? (
-                <img src={team.profile_pic} className="w-full h-full object-cover rounded-2xl" alt="" />
+            <div className="w-24 h-24 bg-white rounded-3xl mx-auto -mt-12 flex items-center justify-center shadow-lg border-4 border-white overflow-hidden">
+              {!imageErrorNonMember && teamPicUrl ? (
+                <img 
+                  src={teamPicUrl} 
+                  onError={() => setImageErrorNonMember(true)}
+                  className="w-full h-full object-cover" 
+                  alt={team.name} 
+                />
               ) : (
-                team.name?.[0]
+                <div className="w-full h-full flex items-center justify-center text-indigo-600 font-black text-4xl bg-indigo-50">
+                  {team.name?.[0]?.toUpperCase()}
+                </div>
               )}
             </div>
             
@@ -90,7 +120,7 @@ const TeamDashboard = () => {
           </div>
         </div>
 
-        {/* Join Request Form (Multi-line) */}
+        {/* Join Request Form */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-lg p-8">
           {!requestSent ? (
             <div className="space-y-4">
@@ -147,7 +177,16 @@ const TeamDashboard = () => {
       <div className="bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
           <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-            {team.profile_pic ? <img src={team.profile_pic} alt="" className="w-full h-full object-cover" /> : <span className="text-3xl font-black">{team.name?.[0]}</span>}
+            {!imageErrorMember && teamPicUrl ? (
+              <img 
+                src={teamPicUrl} 
+                onError={() => setImageErrorMember(true)}
+                alt={team.name} 
+                className="w-full h-full object-cover" 
+              />
+            ) : (
+              <span className="text-3xl font-black">{team.name?.[0]?.toUpperCase()}</span>
+            )}
           </div>
           <div>
             <h1 className="text-3xl lg:text-4xl font-black tracking-tight">{team.name}</h1>
@@ -256,7 +295,7 @@ const TeamDashboard = () => {
                        </div>
                        <p className="text-sm font-mono text-white truncate">{lastCommit.commit.message}</p>
                        <div className="flex items-center gap-2 mt-3">
-                         <img src={lastCommit.author?.avatar_url || "/default-avatar.png"} className="w-5 h-5 rounded-full" alt="" />
+                         <img src={lastCommit.author?.avatar_url || "/default-avatar.png"} className="w-5 h-5 rounded-full object-cover" alt="" />
                          <span className="text-xs font-medium text-[#c9d1d9]">{lastCommit.commit.author.name}</span>
                        </div>
                      </div>
@@ -305,7 +344,12 @@ const TeamDashboard = () => {
                   team.join_requests.map(req => (
                     <div key={req.id} className="p-3 bg-white border border-orange-100 rounded-xl shadow-sm">
                       <div className="flex items-center gap-3 mb-2">
-                        <img src={req.profile_pic || "/default-avatar.png"} className="w-8 h-8 rounded-full bg-slate-200 object-cover" alt="" />
+                        {/* 🟢 Format requester picture safely */}
+                        <img 
+                          src={getImageUrl(req.profile_pic) || "/default-avatar.png"} 
+                          className="w-8 h-8 rounded-full bg-slate-200 object-cover" 
+                          alt="" 
+                        />
                         <div>
                           <p className="text-sm font-bold text-slate-900">{req.full_name}</p>
                           <p className="text-[10px] text-slate-400">{new Date(req.created_at).toLocaleDateString()}</p>
@@ -334,7 +378,8 @@ const TeamDashboard = () => {
               {team.members.slice(0, 5).map(m => (
                 <img 
                   key={m.user_id} 
-                  src={m.profile_pic || "/default-avatar.png"} 
+                  // 🟢 Format member picture safely
+                  src={getImageUrl(m.profile_pic) || "/default-avatar.png"} 
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
                   alt={m.full_name} 
                   title={m.full_name}

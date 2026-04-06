@@ -1,10 +1,10 @@
 from flask import jsonify, request, g
 from app.extensions import db
-from app.models.team import Team, TeamMember, TeamInvite, JoinRequest
+from app.models.team import Team, TeamMember, TeamInvite, JoinRequest, TeamMessage
 from app.models.user import User
-# ... (Keep existing imports and functions)
-from app.models.team import TeamMessage # <--- Make sure to import TeamMessage
 from app.models.task import Task # Ensure Task is imported
+# 🟢 Import our new centralized upload utility
+from app.utils.upload_util import upload_file
 
 def get_team_chat(team_id):
     # Check membership
@@ -87,24 +87,36 @@ def _get_membership(team_id, user_id):
 # -------------------------------------------------
 # Controller Actions
 # -------------------------------------------------
-
 def create_new_team():
-    data = request.get_json()
-    name = data.get('name')
+    # 🟢 CHANGED: Using request.form instead of request.get_json() for file uploads
+    name = request.form.get('name')
     
     if not name:
         return jsonify({'error': 'Team name is required'}), 400
 
     try:
+        # 🟢 NEW: Handle Image Upload
+        profile_pic_url = None
+        if "profile_pic" in request.files and request.files["profile_pic"].filename:
+            file = request.files["profile_pic"]
+            allowed_extensions = {"png", "jpg", "jpeg", "webp"}
+            if "." in file.filename and file.filename.rsplit(".", 1)[1].lower() in allowed_extensions:
+                # Pass a custom folder name to keep Cloudinary organized!
+                profile_pic_url = upload_file(file, folder_name="acadlinker/teams")
+
+        # Handle boolean conversion (FormData sends strings 'true'/'false')
+        is_hiring_str = request.form.get('is_hiring', 'false').lower()
+        is_hiring = is_hiring_str == 'true'
+
         new_team = Team(
             name=name,
-            description=data.get('description'),
-            privacy=data.get('privacy', 'public'),
-            is_hiring=data.get('is_hiring', False),
-            hiring_requirements=data.get('hiring_requirements', ''),
+            description=request.form.get('description'),
+            privacy=request.form.get('privacy', 'public'),
+            is_hiring=is_hiring,
+            hiring_requirements=request.form.get('hiring_requirements', ''),
             creator_id=g.user_id,
-            profile_pic=data.get('profile_pic'),
-            github_repo=data.get('github_repo')
+            profile_pic=profile_pic_url, # 👈 Save the generated URL
+            github_repo=request.form.get('github_repo')
         )
         db.session.add(new_team)
         db.session.commit()
@@ -118,32 +130,38 @@ def create_new_team():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-
-# 2. Add Edit Logic (NEW)
 def edit_team(team_id):
     team = Team.query.get(team_id)
     if not team:
         return jsonify({'error': 'Team not found'}), 404
         
-    # Check permissions (Only Leader)
     membership = _get_membership(team.id, g.user_id)
     if not membership or membership.role != 'leader':
         return jsonify({'error': 'Unauthorized'}), 403
         
-    data = request.get_json()
+    # 🟢 CHANGED: Using request.form
+    data = request.form
     
-    # Update fields if provided
     if 'name' in data: team.name = data['name']
     if 'description' in data: team.description = data['description']
     if 'privacy' in data: team.privacy = data['privacy']
-    if 'is_hiring' in data: team.is_hiring = data['is_hiring']
     if 'hiring_requirements' in data: team.hiring_requirements = data['hiring_requirements']
-    if 'profile_pic' in data: team.profile_pic = data['profile_pic']
     if 'github_repo' in data: team.github_repo = data['github_repo']
+    
+    if 'is_hiring' in data: 
+        team.is_hiring = data['is_hiring'].lower() == 'true'
+
+    # 🟢 NEW: Handle Image Update
+    if "profile_pic" in request.files and request.files["profile_pic"].filename:
+        file = request.files["profile_pic"]
+        allowed_extensions = {"png", "jpg", "jpeg", "webp"}
+        if "." in file.filename and file.filename.rsplit(".", 1)[1].lower() in allowed_extensions:
+            new_pic_url = upload_file(file, folder_name="acadlinker/teams")
+            if new_pic_url:
+                team.profile_pic = new_pic_url
     
     db.session.commit()
     return jsonify({'message': 'Team updated', 'team': _serialize_team(team)}), 200
-
 
 def get_public_teams():
     # Fetch all public teams
@@ -161,6 +179,7 @@ def get_my_teams():
         output.append(team_data)
         
     return jsonify(output), 200
+
 def get_team_details(team_id):
     team = Team.query.get(team_id)
     if not team:
@@ -205,30 +224,42 @@ def get_team_details(team_id):
     # 3. Serialize Recent Pending Tasks (Top 3)
     tasks_data = []
     if is_member:
-        # Fetch pending/in-progress tasks
         recent_tasks = Task.query.filter_by(team_id=team.id).filter(Task.status != 'done').order_by(Task.due_date.asc()).limit(3).all()
         for t in recent_tasks:
             tasks_data.append({
                 'id': t.id,
                 'title': t.title,
-                'priority': t.priority, # 'high', 'medium', 'low'
+                'priority': t.priority,
                 'status': t.status
             })
 
-    # 4. 🆕 Serialize Pending Invites (IDs only)
-    # This allows the UI to show "Sent" instead of "Invite" for users already invited
+    # 4. Serialize Pending Invites (IDs only)
     pending_invite_ids = []
     if is_leader:
         sent_invites = TeamInvite.query.filter_by(team_id=team.id, status='pending').all()
         pending_invite_ids = [inv.receiver_id for inv in sent_invites]
 
+    # 🟢 NEW FIX: Check if the current non-member user has already applied
+    my_request = None
+    if not is_member:
+        # Get the most recent request this user made to this team
+        req = JoinRequest.query.filter_by(team_id=team.id, user_id=g.user_id).order_by(JoinRequest.created_at.desc()).first()
+        if req:
+            my_request = {
+                'status': req.status,   # 'pending', 'accepted', or 'rejected'
+                'message': req.message
+            }
+
     response = _serialize_team(team)
     response['members'] = members_data
     response['join_requests'] = requests_data
     response['pending_tasks'] = tasks_data
-    response['pending_invite_ids'] = pending_invite_ids # 👈 Added field
+    response['pending_invite_ids'] = pending_invite_ids 
     response['is_member'] = is_member
     response['my_role'] = membership.role if is_member else None
+    
+    # 🟢 Add the new data to the response payload
+    response['my_join_request'] = my_request 
     
     return jsonify(response), 200
 
