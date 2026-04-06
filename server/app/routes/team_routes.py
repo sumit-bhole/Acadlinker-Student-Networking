@@ -19,7 +19,8 @@ from app.controllers.ai_controller import (chat_with_project_manager, get_chat_h
 
 team_bp = Blueprint('team', __name__, url_prefix='/api/teams')
 
-@team_bp.route('/<int:team_id>/edit', methods=['PUT'])
+# 👇 Remove the /edit from the URL path here
+@team_bp.route('/<int:team_id>', methods=['PUT'])
 @token_required
 def update_team(team_id):
     return edit_team(team_id)

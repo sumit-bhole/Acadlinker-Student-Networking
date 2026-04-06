@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createTeam } from "../../api/teamApi";
+import api from "../../api/axios"; // 🚀 Using direct API instance for safe FormData upload
 import { 
   Users, 
   Lock, 
@@ -12,21 +12,66 @@ import {
   Briefcase,
   FileText,
   Sparkles,
-  X
+  X,
+  Image as ImageIcon,
+  Github,
+  Camera
 } from "lucide-react";
 
 const CreateTeam = () => {
   const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     privacy: "public",
     is_hiring: false,
-    hiring_requirements: ""
+    hiring_requirements: "",
+    github_repo: "" // 🟢 Added GitHub field
   });
+  
+  // 🟢 Image Upload States
+  const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  // Cleanup preview URL to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  // 🟢 Handle Image Selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setErrors({...errors, image: "Please upload a valid image (JPG, PNG, WEBP)"});
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setErrors({...errors, image: "Image size must be less than 5MB"});
+        return;
+      }
+      
+      setErrors({...errors, image: null});
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    const fileInput = document.getElementById("team-logo-upload");
+    if (fileInput) fileInput.value = "";
+  };
 
   // Validation
   const validateField = (name, value) => {
@@ -41,6 +86,9 @@ const CreateTeam = () => {
         return "";
       case 'hiring_requirements':
         if (formData.is_hiring && !value.trim()) return "Please specify hiring requirements";
+        return "";
+      case 'github_repo':
+        if (value && !value.includes('/')) return "Please enter in 'username/repo' format or full URL";
         return "";
       default:
         return "";
@@ -79,8 +127,25 @@ const CreateTeam = () => {
 
     setLoading(true);
     try {
-      const response = await createTeam(formData);
-      // You could add a success toast notification here
+      // 🚀 CRITICAL FIX: Construct FormData for Multipart Upload
+      const submitData = new FormData();
+      submitData.append('name', formData.name);
+      submitData.append('description', formData.description);
+      submitData.append('privacy', formData.privacy);
+      submitData.append('is_hiring', formData.is_hiring);
+      submitData.append('hiring_requirements', formData.hiring_requirements);
+      if (formData.github_repo) submitData.append('github_repo', formData.github_repo);
+      
+      // Append the image file if selected
+      if (imageFile) {
+        submitData.append('profile_pic', imageFile);
+      }
+
+      // We use api.post directly to ensure Axios sets multipart/form-data headers automatically
+      await api.post("/api/teams/create", submitData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      
       navigate("/teams/my");
     } catch (err) {
       setErrors({ 
@@ -91,15 +156,15 @@ const CreateTeam = () => {
     }
   };
 
-  // Check if form is valid (for enabling/disabling submit button)
   const isFormValid = () => {
     if (!formData.name.trim() || formData.name.length < 3) return false;
     if (formData.is_hiring && !formData.hiring_requirements.trim()) return false;
+    if (errors.image) return false;
     return Object.keys(errors).filter(key => key !== 'submit').every(key => !errors[key]);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 py-8 px-4 sm:px-6 lg:px-8 pb-24">
       {/* Decorative Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-3xl" />
@@ -107,6 +172,7 @@ const CreateTeam = () => {
       </div>
 
       <div className="relative max-w-2xl mx-auto">
+        
         {/* Header Section */}
         <div className="text-center mb-8 animate-fadeIn">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl shadow-lg mb-4 transform hover:scale-105 transition-transform duration-300">
@@ -123,6 +189,47 @@ const CreateTeam = () => {
         {/* Main Form Card */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 lg:p-10 space-y-8">
+            
+            {/* 🟢 TEAM LOGO UPLOAD */}
+            <div className="flex flex-col items-center justify-center space-y-3 animate-slideUp">
+              <div className="relative group cursor-pointer">
+                <div className={`w-28 h-28 rounded-full border-4 border-white shadow-lg overflow-hidden bg-slate-100 flex items-center justify-center transition-all ${!previewUrl ? 'group-hover:bg-slate-200' : ''}`}>
+                  {previewUrl ? (
+                    <img src={previewUrl} alt="Team Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Camera className="w-10 h-10 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  )}
+                </div>
+                
+                <label htmlFor="team-logo-upload" className="absolute inset-0 rounded-full cursor-pointer z-10 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-colors">
+                  <span className="sr-only">Upload team logo</span>
+                </label>
+                
+                {previewUrl && (
+                  <button 
+                    type="button" 
+                    onClick={(e) => { e.preventDefault(); removeImage(); }}
+                    className="absolute top-0 right-0 bg-white text-rose-500 p-1.5 rounded-full shadow-md hover:bg-rose-50 transition-colors z-20 border border-slate-100"
+                  >
+                    <X size={16} strokeWidth={3} />
+                  </button>
+                )}
+                <input
+                  id="team-logo-upload"
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg, image/webp"
+                  className="hidden"
+                  onChange={handleImageChange}
+                  disabled={loading}
+                />
+              </div>
+              <div className="text-center">
+                <h3 className="text-sm font-bold text-slate-700">Team Logo</h3>
+                <p className="text-xs text-slate-500">Optional. JPG, PNG up to 5MB</p>
+                {errors.image && <p className="text-xs text-rose-500 mt-1 font-medium">{errors.image}</p>}
+              </div>
+            </div>
+
             {/* Team Name Field */}
             <div className="space-y-2 animate-slideUp" style={{animationDelay: '0.1s'}}>
               <label className="block text-sm font-semibold text-slate-700">
@@ -160,9 +267,6 @@ const CreateTeam = () => {
                   {errors.name}
                 </p>
               )}
-              <p className="text-xs text-slate-500 mt-1">
-                Choose a unique and memorable name for your team (3-50 characters)
-              </p>
             </div>
 
             {/* Description Field */}
@@ -177,29 +281,52 @@ const CreateTeam = () => {
                   }`} />
                 </div>
                 <textarea
-                  rows="4"
+                  rows="3"
                   className={`w-full pl-10 pr-4 py-3 bg-slate-50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-200 resize-none ${
                     errors.description && touched.description 
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
                       : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200 hover:bg-white'
                   }`}
-                  placeholder="Describe your team's mission, goals, and what kind of projects you work on..."
+                  placeholder="Describe your team's mission, goals, and projects..."
                   value={formData.description}
                   onChange={(e) => handleChange('description', e.target.value)}
                   onBlur={() => handleBlur('description')}
                   disabled={loading}
                 />
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">
-                  Help others understand what your team is about
-                </span>
-                <span className={`font-medium ${
-                  formData.description.length > 450 ? 'text-orange-600' : 'text-slate-500'
-                }`}>
-                  {formData.description.length}/500
-                </span>
+            </div>
+
+            {/* 🟢 GITHUB REPO Field */}
+            <div className="space-y-2 animate-slideUp" style={{animationDelay: '0.25s'}}>
+              <label className="block text-sm font-semibold text-slate-700">
+                GitHub Repository
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Github className={`h-5 w-5 transition-colors duration-200 ${
+                    errors.github_repo && touched.github_repo ? 'text-red-400' : 'text-slate-400 group-focus-within:text-slate-900'
+                  }`} />
+                </div>
+                <input
+                  type="text"
+                  className={`w-full pl-10 pr-4 py-3.5 bg-slate-50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-200 ${
+                    errors.github_repo && touched.github_repo 
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
+                      : 'border-slate-200 focus:border-slate-400 focus:ring-slate-200 hover:bg-white'
+                  }`}
+                  placeholder="e.g. https://github.com/username/repo"
+                  value={formData.github_repo}
+                  onChange={(e) => handleChange('github_repo', e.target.value)}
+                  onBlur={() => handleBlur('github_repo')}
+                  disabled={loading}
+                />
               </div>
+              {errors.github_repo && touched.github_repo && (
+                <p className="text-sm text-red-600 mt-1 flex items-center gap-1 animate-shake">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.github_repo}
+                </p>
+              )}
             </div>
 
             {/* Privacy Selection */}
@@ -212,9 +339,9 @@ const CreateTeam = () => {
                 <button
                   type="button"
                   onClick={() => handleChange('privacy', 'public')}
-                  className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group hover:shadow-lg ${
+                  className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group hover:shadow-md ${
                     formData.privacy === 'public'
-                      ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-indigo-100/50 shadow-indigo-200'
+                      ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-indigo-100/50 shadow-sm'
                       : 'border-slate-200 hover:border-indigo-300 hover:bg-white'
                   }`}
                   disabled={loading}
@@ -231,19 +358,15 @@ const CreateTeam = () => {
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Anyone can discover your team and request to join.
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">Discoverable</span>
-                    <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">Open requests</span>
-                  </div>
                 </button>
 
                 {/* Private Option */}
                 <button
                   type="button"
                   onClick={() => handleChange('privacy', 'private')}
-                  className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group hover:shadow-lg ${
+                  className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group hover:shadow-md ${
                     formData.privacy === 'private'
-                      ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-indigo-100/50 shadow-indigo-200'
+                      ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-indigo-100/50 shadow-sm'
                       : 'border-slate-200 hover:border-indigo-300 hover:bg-white'
                   }`}
                   disabled={loading}
@@ -260,10 +383,6 @@ const CreateTeam = () => {
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Only visible to invited members.
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Invite only</span>
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Private</span>
-                  </div>
                 </button>
               </div>
             </div>
@@ -273,7 +392,7 @@ const CreateTeam = () => {
               <div className={`p-5 rounded-2xl border-2 transition-all duration-300 ${
                 formData.is_hiring 
                   ? 'border-green-200 bg-gradient-to-br from-green-50 to-emerald-50/50' 
-                  : 'border-slate-200 hover:border-slate-300'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
               }`}>
                 <div className="flex items-start sm:items-center gap-4">
                   <div className="relative">
@@ -301,8 +420,8 @@ const CreateTeam = () => {
                   <div className="flex-1">
                     <label htmlFor="hiring" className="block font-semibold text-slate-800 cursor-pointer">
                       <span className="flex items-center gap-2">
-                        <Briefcase className="h-5 w-5 text-green-600" />
-                        Currently recruiting new members
+                        <Briefcase className={`h-5 w-5 ${formData.is_hiring ? 'text-green-600' : 'text-slate-500'}`} />
+                        We are recruiting
                       </span>
                     </label>
                     <p className="text-sm text-slate-600 mt-1">
@@ -318,7 +437,7 @@ const CreateTeam = () => {
               }`}>
                 <div className="pt-3">
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    What are you looking for? <span className="text-red-500">*</span>
+                    What skills are you looking for? <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -353,7 +472,7 @@ const CreateTeam = () => {
             {/* Submit Error */}
             {errors.submit && (
               <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 animate-shake">
-                <p className="text-sm text-red-700 flex items-center gap-2">
+                <p className="text-sm text-red-700 flex items-center gap-2 font-medium">
                   <AlertCircle className="h-5 w-5 flex-shrink-0" />
                   {errors.submit}
                 </p>
@@ -365,7 +484,7 @@ const CreateTeam = () => {
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="flex-1 px-6 py-3.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus:ring-4 focus:ring-slate-200 outline-none disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3.5 border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 focus:ring-4 focus:ring-slate-200 outline-none disabled:opacity-50 flex items-center justify-center gap-2"
                 disabled={loading}
               >
                 <X className="h-5 w-5" />
@@ -374,7 +493,7 @@ const CreateTeam = () => {
               <button
                 type="submit"
                 disabled={loading || !isFormValid()}
-                className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-3.5 px-6 rounded-xl font-semibold hover:shadow-xl hover:shadow-indigo-200 transform hover:-translate-y-0.5 transition-all duration-200 focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none flex items-center justify-center gap-2 group"
+                className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-3.5 px-6 rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-200 transform hover:-translate-y-0.5 transition-all duration-200 focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none flex items-center justify-center gap-2 group"
               >
                 {loading ? (
                   <>
@@ -389,49 +508,7 @@ const CreateTeam = () => {
                 )}
               </button>
             </div>
-
-            {/* Form Summary - Shows what will be created */}
-            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 animate-slideUp" style={{animationDelay: '0.6s'}}>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-indigo-600" />
-                Team Summary
-              </h4>
-              <div className="text-sm text-slate-600 space-y-1">
-                <p><span className="font-medium">Name:</span> {formData.name || "(not set)"}</p>
-                <p><span className="font-medium">Privacy:</span> {formData.privacy === 'public' ? '🌍 Public' : '🔒 Private'}</p>
-                <p><span className="font-medium">Recruiting:</span> {formData.is_hiring ? '✅ Yes' : '❌ No'}</p>
-                {formData.is_hiring && (
-                  <p><span className="font-medium">Requirements:</span> {formData.hiring_requirements || "(not specified)"}</p>
-                )}
-              </div>
-            </div>
           </form>
-        </div>
-
-        {/* Help Section */}
-        <div className="mt-8 bg-white/50 backdrop-blur-sm rounded-2xl p-6 border border-white/50">
-          <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-indigo-600" />
-            Tips for creating a great team
-          </h3>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-600">
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-              Choose a clear, descriptive team name (3-50 chars)
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-              Write a detailed description of your goals
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-              Choose privacy setting based on your needs
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-              Specify skills you're looking for when hiring
-            </li>
-          </ul>
         </div>
       </div>
 
@@ -443,25 +520,13 @@ const CreateTeam = () => {
         }
         
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         
         @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
         }
         
         @keyframes shake {
@@ -470,22 +535,10 @@ const CreateTeam = () => {
           75% { transform: translateX(5px); }
         }
         
-        .animate-fadeIn {
-          animation: fadeIn 0.6s ease-out;
-        }
-        
-        .animate-slideUp {
-          opacity: 0;
-          animation: slideUp 0.5s ease-out forwards;
-        }
-        
-        .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out;
-        }
-        
-        .animate-shake {
-          animation: shake 0.4s ease-in-out;
-        }
+        .animate-fadeIn { animation: fadeIn 0.6s ease-out; }
+        .animate-slideUp { opacity: 0; animation: slideUp 0.5s ease-out forwards; }
+        .animate-scaleIn { animation: scaleIn 0.3s ease-out; }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
       `}</style>
     </div>
   );
