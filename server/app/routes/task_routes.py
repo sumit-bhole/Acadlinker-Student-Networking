@@ -9,29 +9,26 @@ from app.controllers.task_controller import (
 
 task_bp = Blueprint('task', __name__, url_prefix='/api/tasks')
 
-# app/routes/task_routes.py
-
-@task_bp.route('/<int:task_id>/status', methods=['PATCH']) # 👈 Ensure PATCH is here
-@token_required
-def update_status(task_id):
-    return update_task_status(task_id)
-
 @task_bp.route('/team/<int:team_id>', methods=['GET'])
 @token_required
 def get_team_tasks(team_id):
+    """Get all tasks for a specific team workspace"""
     return get_tasks_for_team(team_id)
 
 @task_bp.route('/create', methods=['POST'])
 @token_required
 def create():
+    """Create a new task"""
     return create_task()
 
 @task_bp.route('/<int:task_id>', methods=['PATCH', 'PUT'])
 @token_required
 def update(task_id):
+    """Update a task (status, priority, details, or proof of work)"""
     return update_task_status(task_id)
 
 @task_bp.route('/<int:task_id>', methods=['DELETE'])
 @token_required
 def delete(task_id):
+    """Permanently delete a task"""
     return delete_task(task_id)

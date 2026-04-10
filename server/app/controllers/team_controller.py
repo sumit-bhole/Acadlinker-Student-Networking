@@ -260,7 +260,7 @@ def get_team_details(team_id):
     
     # 🟢 Add the new data to the response payload
     response['my_join_request'] = my_request 
-    
+    response['my_user_id'] = g.user_id
     return jsonify(response), 200
 
 def request_to_join_team():
