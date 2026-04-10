@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getTeamDetails, joinRequest, respondToRequest } from "../api/teamApi";
 import TeamAIChat from "../components/Teams/TeamAIChat";
+import { useAuth } from "../contexts/AuthContext";
 
 // 🚀 HELPER: Safely format image URLs
 const getImageUrl = (url) => {
@@ -29,6 +30,7 @@ const getImageUrl = (url) => {
 };
 
 const TeamLayout = () => {
+  const { currentUser } = useAuth();
   const { teamId } = useParams();
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -347,7 +349,7 @@ const TeamLayout = () => {
       {/* 🟢 MAIN CONTENT AREA */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden md:p-0 pt-16 pb-20 md:pb-0 relative scroll-smooth bg-white md:bg-slate-50/50">
         <div className="h-full md:rounded-tl-[2rem] md:border-t md:border-l md:border-slate-200/60 md:bg-white md:shadow-[inset_0_2px_20px_rgba(0,0,0,0.01)] overflow-y-auto">
-           <Outlet context={{ team, isLeader: team.my_role === 'leader' }} />
+         <Outlet context={{ team, isLeader: team.my_role === 'leader', user: currentUser }} />
         </div>
       </main>
 
