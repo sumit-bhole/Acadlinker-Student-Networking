@@ -16,7 +16,7 @@ def _get_membership(team_id, user_id):
 def _serialize_task(task):
     """Convert Task object to a professional JSON structure"""
     
-    # 🟢 Dynamic Overdue Logic (No cron jobs needed!)
+    # 🟢 Dynamic Overdue Logic
     is_overdue = False
     if task.due_date and task.status != 'done':
         is_overdue = datetime.utcnow() > task.due_date
@@ -29,7 +29,7 @@ def _serialize_task(task):
         'priority': task.priority,  
         'due_date': task.due_date.isoformat() if task.due_date else None,
         'created_at': task.created_at.isoformat(),
-        'is_overdue': is_overdue, # 🟢 Frontend can use this to highlight late tasks
+        'is_overdue': is_overdue,
         'proof': {
             'text': task.proof_text,
             'link': task.proof_link,
@@ -50,8 +50,11 @@ def get_tasks_for_team(team_id):
     if not _get_membership(team_id, g.user_id):
         return jsonify({'error': 'Unauthorized access to team workspace'}), 403
 
-    tasks = Task.query.filter_by(team_id=team_id).order_by(Task.created_at.desc()).all()
-    return jsonify([_serialize_task(t) for t in tasks]), 200
+    # Fetch ALL tasks for the Insights Dashboard
+    tasks_data = []
+    all_tasks = Task.query.filter_by(team_id=team_id).order_by(Task.created_at.desc()).all()
+    
+    return jsonify([_serialize_task(t) for t in all_tasks]), 200
 
 
 def create_task():
@@ -63,12 +66,18 @@ def create_task():
         return jsonify({'error': 'Unauthorized'}), 403
 
     assigned_to_id = data.get('assigned_to_id')
+    status = data.get('status', 'todo')
 
-    # 🟢 ROLE ENFORCEMENT: Assignment Logic
+    # 🟢 ROLE ENFORCEMENT
     if membership.role == 'member':
-        # Members can only assign to themselves, or leave it unassigned (None)
         if assigned_to_id and str(assigned_to_id) != str(g.user_id):
             return jsonify({'error': 'Members can only assign tasks to themselves.'}), 403
+
+    # 🟢 STRICT WIP LIMIT: Max 1 "In Progress" task per user
+    if status == 'in_progress' and assigned_to_id:
+        active_task = Task.query.filter_by(team_id=team_id, assigned_to_id=assigned_to_id, status='in_progress').first()
+        if active_task:
+            return jsonify({'error': 'WIP Limit Reached: User is already working on a task. Complete or pause it first.'}), 400
 
     try:
         new_task = Task(
@@ -76,7 +85,7 @@ def create_task():
             title=data.get('title'),
             description=data.get('description', ''),
             priority=data.get('priority', 'medium'), 
-            status=data.get('status', 'todo'),
+            status=status,
             assigned_to_id=assigned_to_id,
             due_date=datetime.fromisoformat(data.get('due_date')) if data.get('due_date') else None
         )
@@ -107,50 +116,60 @@ def update_task_status(task_id):
     if not is_leader and not is_assignee and task.assigned_to_id is not None:
         return jsonify({'error': 'You can only edit your own tasks.'}), 403
 
-    # Robust parsing: Handle both JSON (simple drags) and FormData (proof uploads)
     data = request.form.to_dict() if request.form else request.get_json() or {}
-
-    # 🟢 STATE MACHINE: Moving to "Done"
     new_status = data.get('status', task.status)
     
+    # 🟢 1. Figure out who the target assignee will be after this update
+    target_assignee = task.assigned_to_id
+    if 'assigned_to_id' in data:
+        new_assignee = data['assigned_to_id']
+        if new_assignee == "": new_assignee = None
+        
+        if is_leader:
+            target_assignee = new_assignee
+        elif not is_leader and (new_assignee == str(g.user_id) or new_assignee is None):
+            target_assignee = new_assignee
+        else:
+            return jsonify({'error': 'Members can only assign tasks to themselves.'}), 403
+
+    # 🟢 2. STRICT WIP LIMIT: Max 1 "In Progress" task per user
+    if new_status == 'in_progress' and target_assignee:
+        active_task = Task.query.filter(
+            Task.team_id == task.team_id,
+            Task.assigned_to_id == target_assignee,
+            Task.status == 'in_progress',
+            Task.id != task.id # Exclude the task we are currently editing!
+        ).first()
+        
+        if active_task:
+            return jsonify({'error': 'WIP Limit Reached: A user can only work on ONE task at a time. Complete or pause the active task first.'}), 400
+
+    # 🟢 STATE MACHINE: Moving to "Done"
     if new_status == 'done' and task.status != 'done':
         proof_text = data.get('proof_text')
-        
-        # Proof Text is MANDATORY
         if not proof_text or not proof_text.strip():
             return jsonify({'error': 'Proof of work (text description) is required to complete a task.'}), 400
             
         task.proof_text = proof_text
-        task.proof_link = data.get('proof_link') # Optional
+        task.proof_link = data.get('proof_link')
         
-        # Optional Image Upload
         if "proof_image" in request.files and request.files["proof_image"].filename:
             file = request.files["proof_image"]
             task.proof_image = upload_file(file, folder_name="acadlinker/tasks")
 
     # 🟢 STATE MACHINE: Leader kicking it back to "In Progress"
     if new_status != 'done' and task.status == 'done' and is_leader:
-        # Wipe the proof clean so the member has to resubmit it
         task.proof_text = None
         task.proof_link = None
         task.proof_image = None
 
     # Apply standard updates
     task.status = new_status
+    task.assigned_to_id = target_assignee
     if 'priority' in data: task.priority = data['priority']
     if 'title' in data: task.title = data['title']
     if 'description' in data: task.description = data['description']
     
-    # Update assignee (Leaders can assign anyone, Members can only "claim" unassigned tasks)
-    if 'assigned_to_id' in data:
-        new_assignee = data['assigned_to_id']
-        if is_leader:
-            task.assigned_to_id = new_assignee
-        elif not is_leader and (new_assignee == str(g.user_id) or new_assignee is None):
-            task.assigned_to_id = new_assignee
-        else:
-            return jsonify({'error': 'Members can only assign tasks to themselves.'}), 403
-
     if 'due_date' in data:
         task.due_date = datetime.fromisoformat(data['due_date']) if data['due_date'] else None
 
@@ -158,18 +177,14 @@ def update_task_status(task_id):
     return jsonify({'message': 'Task updated successfully', 'task': _serialize_task(task)}), 200
 
 def delete_task(task_id):
-    """Permanently remove a task from the team (Leaders Only)"""
     task = Task.query.get(task_id)
     if not task:
         return jsonify({'error': 'Task not found'}), 404
 
-    # 🟢 FIX: Use _get_membership instead of the old _is_member
     membership = _get_membership(task.team_id, g.user_id)
-    
     if not membership:
         return jsonify({'error': 'Unauthorized'}), 403
         
-    # 🟢 MAANG-Level Rule: Prevent regular members from deleting tasks
     if membership.role != 'leader':
         return jsonify({'error': 'Only team leaders can permanently delete tasks.'}), 403
 

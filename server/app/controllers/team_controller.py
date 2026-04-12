@@ -221,16 +221,30 @@ def get_team_details(team_id):
                 'created_at': req.created_at.isoformat()
             })
 
-    # 3. Serialize Recent Pending Tasks (Top 3)
+    # 3. Serialize ALL Tasks for the Insights Dashboard
     tasks_data = []
     if is_member:
-        recent_tasks = Task.query.filter_by(team_id=team.id).filter(Task.status != 'done').order_by(Task.due_date.asc()).limit(3).all()
-        for t in recent_tasks:
+        # Fetch all tasks so the dashboard can calculate accurate percentages
+        all_tasks = Task.query.filter_by(team_id=team.id).all()
+        for t in all_tasks:
+            # Calculate overdue status dynamically
+            is_overdue = False
+            if t.due_date and t.status != 'done':
+                from datetime import datetime
+                is_overdue = datetime.utcnow() > t.due_date
+
             tasks_data.append({
                 'id': t.id,
                 'title': t.title,
                 'priority': t.priority,
-                'status': t.status
+                'status': t.status,
+                'is_overdue': is_overdue,
+                # 🟢 CRITICAL FIX: Send the assignee data to the frontend!
+                'assigned_to': {
+                    'id': t.assigned_to.id,
+                    'full_name': t.assigned_to.full_name,
+                    'profile_pic': t.assigned_to.profile_pic
+                } if t.assigned_to else None
             })
 
     # 4. Serialize Pending Invites (IDs only)

@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useOutletContext, Link } from "react-router-dom";
 import { 
-  Github, CheckCircle, ArrowRight, UserPlus, 
-  GitBranch, Star, AlertCircle, Edit2, X, GitCommit, MessageSquare, Users 
+  CheckCircle, UserPlus, Edit2, MessageSquare, Users, Globe, Lock
 } from "lucide-react";
 import EditTeamModal from "../../components/Teams/EditTeamModal";
 import InviteModal from "../../components/Teams/InviteModal";
 import { joinRequest, respondToRequest } from "../../api/teamApi"; 
 
-// 🚀 HELPER: Safely format image URLs (Handles both Cloudinary and Local Uploads)
+// 🟢 Import our newly extracted Widgets
+import ActiveSprintWidget from "../../components/Teams/ActiveSprintWidget";
+import GitHubWidget from "../../components/Teams/GitHubWidget";
+
 const getImageUrl = (url) => {
   if (!url) return null;
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
@@ -27,38 +29,8 @@ const TeamDashboard = () => {
   const [joinMsg, setJoinMsg] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   
-  // State to handle image loading errors
   const [imageErrorNonMember, setImageErrorNonMember] = useState(false);
   const [imageErrorMember, setImageErrorMember] = useState(false);
-
-// GitHub State
-const [repoData, setRepoData] = useState(null);
-const [commits, setCommits] = useState([]);
-const [branches, setBranches] = useState([]);
-const [contributors, setContributors] = useState([]);
-
-useEffect(() => {
-  if (team?.github_repo) {
-    const cleanRepo = team.github_repo.replace("https://github.com/", "").replace(".git", "");
-    
-    // Define the endpoints
-    const endpoints = [
-      `https://api.github.com/repos/${cleanRepo}`,
-      `https://api.github.com/repos/${cleanRepo}/commits?per_page=5`,
-      `https://api.github.com/repos/${cleanRepo}/branches`,
-      `https://api.github.com/repos/${cleanRepo}/contributors?per_page=6`
-    ];
-
-    Promise.all(endpoints.map(url => fetch(url).then(res => res.json())))
-      .then(([repo, commitList, branchList, contributorList]) => {
-        if (!repo.message) setRepoData(repo);
-        if (Array.isArray(commitList)) setCommits(commitList);
-        if (Array.isArray(branchList)) setBranches(branchList);
-        if (Array.isArray(contributorList)) setContributors(contributorList);
-      })
-      .catch(err => console.error("GitHub Data Sync Error:", err));
-  }
-}, [team]);
 
   const handleJoin = async () => {
     try {
@@ -80,7 +52,6 @@ useEffect(() => {
 
   if (!team) return <div className="p-10 text-center">Loading Team Data...</div>;
 
-  // Process the team profile picture URL safely
   const teamPicUrl = getImageUrl(team.profile_pic);
 
   // =========================================================
@@ -215,142 +186,22 @@ useEffect(() => {
         {/* === LEFT COLUMN (2 Spans) === */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Active Sprint / Tasks */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <CheckCircle size={20} className="text-emerald-500" /> Active Sprint
-              </h3>
-              <Link to="tasks" className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 group">
-                View Board <ArrowRight size={16} className="group-hover:translate-x-1 transition"/>
-              </Link>
-            </div>
-            <div className="p-2">
-              {team.pending_tasks?.length > 0 ? (
-                <div className="space-y-1">
-                  {team.pending_tasks.map(task => (
-                    <div key={task.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition group cursor-pointer">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-2.5 h-2.5 rounded-full ${task.priority === 'high' ? 'bg-red-500 ring-2 ring-red-100' : 'bg-orange-400 ring-2 ring-orange-100'}`} />
-                        <span className="font-medium text-slate-700">{task.title}</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-1 rounded-md group-hover:bg-white group-hover:shadow-sm transition">
-                        {task.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-12 text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CheckCircle size={32} className="text-slate-300" />
-                  </div>
-                  <p className="text-slate-500 text-sm font-medium">All caught up! No active tasks.</p>
-                  <Link to="tasks" className="text-indigo-600 text-xs font-bold mt-2 hover:underline">Create a task</Link>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* 🟢 Use the extracted Sprint Widget */}
+          <ActiveSprintWidget tasks={team.pending_tasks} members={team.members}/>
 
-          {/* GitHub Integration Card */}
-<div className="bg-[#0d1117] text-[#c9d1d9] rounded-2xl border border-[#30363d] overflow-hidden shadow-lg">
-  <div className="p-4 border-b border-[#30363d] flex justify-between items-center bg-[#161b22]">
-    <h3 className="font-bold flex items-center gap-2 text-sm"><Github size={18} /> Repository Engine</h3>
-    <div className="flex gap-2">
-      <span className="text-[10px] font-bold px-2 py-0.5 bg-[#238636] text-white rounded-full border border-white/10">
-        {branches.length} Branches
-      </span>
-    </div>
-  </div>
+          {/* 🟢 Use the extracted GitHub Widget */}
+          <GitHubWidget 
+            githubRepo={team.github_repo} 
+            isLeader={isLeader} 
+            onLinkRepo={() => setShowEdit(true)} 
+          />
 
-  <div className="p-6 space-y-6">
-    {team.github_repo ? (
-      <>
-        {/* Repo Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-xl font-bold text-white tracking-tight hover:text-blue-400 transition cursor-pointer">
-              {team.github_repo.split('/').pop()}
-            </p>
-            <p className="text-xs text-[#8b949e] mt-1 max-w-md">{repoData?.description || "No description provided."}</p>
-          </div>
-          <a href={`https://github.com/${team.github_repo}`} target="_blank" rel="noreferrer" 
-             className="px-3 py-1 bg-[#21262d] border border-[#30363d] rounded-md text-xs font-bold hover:bg-[#30363d] transition">
-            View on GitHub
-          </a>
-        </div>
-
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-3 gap-4 py-4 border-y border-[#30363d]">
-          <div className="text-center">
-            <p className="text-white font-bold">{repoData?.stargazers_count || 0}</p>
-            <p className="text-[10px] text-[#8b949e] uppercase">Stars</p>
-          </div>
-          <div className="text-center border-x border-[#30363d]">
-            <p className="text-white font-bold">{repoData?.forks_count || 0}</p>
-            <p className="text-[10px] text-[#8b949e] uppercase">Forks</p>
-          </div>
-          <div className="text-center">
-            <p className="text-white font-bold">{repoData?.open_issues_count || 0}</p>
-            <p className="text-[10px] text-[#8b949e] uppercase">Issues</p>
-          </div>
-        </div>
-
-        {/* Contributors / Collaborators Section */}
-        <div>
-          <h4 className="text-[10px] font-black text-[#8b949e] uppercase tracking-widest mb-3 flex items-center gap-2">
-            <Users size={12} /> Top Contributors
-          </h4>
-          <div className="flex flex-wrap gap-3">
-            {contributors.map(user => (
-              <a key={user.id} href={user.html_url} target="_blank" rel="noreferrer" className="group relative">
-                <img src={user.avatar_url} className="w-8 h-8 rounded-full border border-[#30363d] group-hover:border-blue-500 transition" alt={user.login} />
-                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap z-20">
-                  {user.login}
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Commits (Top 5) */}
-        <div>
-          <h4 className="text-[10px] font-black text-[#8b949e] uppercase tracking-widest mb-3 flex items-center gap-2">
-            <GitCommit size={12} /> Recent Activity
-          </h4>
-          <div className="space-y-2">
-            {commits.map((c, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#161b22] border border-transparent hover:border-[#30363d] transition group">
-                <img src={c.author?.avatar_url} className="w-6 h-6 rounded-full" alt="" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-[#c9d1d9] truncate font-medium group-hover:text-blue-400">{c.commit.message}</p>
-                  <p className="text-[10px] text-[#8b949e]">{c.commit.author.name} • {new Date(c.commit.author.date).toLocaleDateString()}</p>
-                </div>
-                <ArrowRight size={12} className="text-[#30363d] group-hover:text-white" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </>
-    ) : (
-      <div className="text-center py-12">
-        <Github size={48} className="mx-auto text-[#30363d] mb-4" />
-        <p className="text-sm font-medium text-[#8b949e]">Connect your GitHub repository to see live stats.</p>
-        {isLeader && (
-          <button onClick={() => setShowEdit(true)} className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition">
-            Link Repository
-          </button>
-        )}
-      </div>
-    )}
-  </div>
-</div>
         </div>
 
         {/* === RIGHT COLUMN: REQUESTS & MEMBERS === */}
         <div className="space-y-6">
           
-          {/* 🟢 JOIN REQUESTS WIDGET (Leader Only) */}
+          {/* JOIN REQUESTS WIDGET (Leader Only) */}
           {isLeader && (
             <div className="bg-white rounded-2xl border border-orange-200 shadow-sm overflow-hidden animate-in fade-in">
               <div className="p-4 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
@@ -373,7 +224,6 @@ useEffect(() => {
                   team.join_requests.map(req => (
                     <div key={req.id} className="p-3 bg-white border border-orange-100 rounded-xl shadow-sm">
                       <div className="flex items-center gap-3 mb-2">
-                        {/* 🟢 Format requester picture safely */}
                         <img 
                           src={getImageUrl(req.profile_pic) || "/default-avatar.png"} 
                           className="w-8 h-8 rounded-full bg-slate-200 object-cover" 
@@ -407,7 +257,6 @@ useEffect(() => {
               {team.members.slice(0, 5).map(m => (
                 <img 
                   key={m.user_id} 
-                  // 🟢 Format member picture safely
                   src={getImageUrl(m.profile_pic) || "/default-avatar.png"} 
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
                   alt={m.full_name} 
